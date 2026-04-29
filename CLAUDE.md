@@ -27,8 +27,8 @@ Backup discovery is dynamic: all circuits tagged `dd` present at both the A-side
 ```bash
 # First-time setup
 cp .env.example .env        # fill in credentials
-./setup.sh                  # creates .env, syncs Python deps, creates ansible/vars/infra.yml
-uv run --with requests python setup_aap.py   # configures AAP + NetBox webhook (idempotent)
+./setup.sh                  # creates .env, creates ansible/vars/infra.yml
+./run-playbook.sh ansible/pb_setup_aap.yml   # configures AAP + NetBox webhook (idempotent)
 ./setup_infra.sh            # provisions EC2 instances via Terraform (infra/)
 
 # Run playbooks locally (sources .env, uses localhost inventory)

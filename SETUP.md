@@ -4,7 +4,6 @@
 
 - **Ansible Automation Platform 2.6** — containerized deployment (all-in-one or growth topology)
 - **NetBox** — NetBox Cloud or self-hosted instance with Visual Explorer and Copilot
-- Python 3.12+ with `uv`
 - `ansible-navigator` and `ansible-rulebook`
 - AWS CLI configured for `eu-west-2` (for report/MCP server infrastructure)
 - Terraform
@@ -33,7 +32,7 @@ Copy `.env.example` to `.env` and fill in:
 
 ## Ansible Automation Platform Configuration
 
-AAP 2.6 requires the following resources configured. The `setup_aap.py` script creates most of these automatically.
+AAP 2.6 requires the following resources configured. The `pb_setup_aap.yml` playbook creates all of these automatically.
 
 ### Automation Controller
 
@@ -84,11 +83,12 @@ The EDA rulebook activation receives webhooks from NetBox, evaluates the circuit
 cp .env.example .env
 # Fill in .env with your NetBox and AAP credentials
 
-# 2. Install the netbox.netbox collection
+# 2. Install the required collections
 ansible-galaxy collection install -r collections/requirements.yml
 
 # 3. Configure AAP resources (idempotent — safe to re-run)
-uv run --with requests python setup_aap.py
+source .env
+./run-playbook.sh ansible/pb_setup_aap.yml
 
 # 4. Provision AWS infrastructure (report server + MCP server)
 ./setup_infra.sh

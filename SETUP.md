@@ -23,6 +23,7 @@ Copy `.env.example` to `.env` and fill in:
 | `AAP_USERNAME` | AAP username |
 | `AAP_PASSWORD` | AAP password |
 | `AAP_TOKEN` | AAP OAuth token — used by the NetBox webhook to launch the workflow |
+| `EDA_STREAM_TOKEN` | Shared token for NetBox → EDA webhook authentication (any strong random string) |
 
 `.env` is gitignored and will never be committed.
 
@@ -58,12 +59,14 @@ The Controller job templates require an Execution Environment with:
 
 | Resource | Name | Details |
 |---|---|---|
-| Decision Environment | DE supported (RHEL 9) | `registry.redhat.io/ansible-automation-platform-26/de-supported-rhel9:latest` |
+| Decision Environment | Summit Demo DE | `registry.redhat.io/ansible-automation-platform-26/de-supported-rhel9:latest` |
 | Project | Summit NetBox Circuits Demo | Same Git repository — EDA discovers `rulebooks/rulebook.yml` |
 | Credential | AAP Controller - Summit Demo | EDA credential for `run_workflow_template` action |
+| Credential | NetBox Webhook Token | Token Event Stream credential for webhook authentication |
+| Event Stream | NetBox Circuit Events | HTTP endpoint that receives NetBox circuit change webhooks |
 | Rulebook Activation | NetBox Circuit Failover | Runs `rulebook.yml` with the DE, listens for NetBox events |
 
-The EDA rulebook activation receives webhooks from NetBox, evaluates the circuit status condition, and launches the Circuit Failover Workflow on Automation Controller.
+The EDA rulebook activation receives webhooks from NetBox via the event stream, evaluates the circuit status condition, and launches the Circuit Failover Workflow on Automation Controller.
 
 ### NetBox Integration
 
@@ -79,23 +82,26 @@ The EDA rulebook activation receives webhooks from NetBox, evaluates the circuit
 ## First-Time Setup
 
 ```bash
-# 1. Configure credentials
-cp .env.example .env
-# Fill in .env with your NetBox and AAP credentials
+# 1. Initial setup — creates .env and ansible/vars/infra.yml placeholders
+./setup.sh
+# Fill in .env with your NetBox, AAP, and EDA credentials
 
-# 2. Install the required collections
+# 2. Install required Ansible collections
 ansible-galaxy collection install -r collections/requirements.yml
 
-# 3. Configure AAP resources (idempotent — safe to re-run)
+# 3. Configure AAP, EDA, and NetBox resources (idempotent — safe to re-run)
 source .env
 ./run-playbook.sh ansible/pb_setup_aap.yml
 
 # 4. Provision AWS infrastructure (report server + MCP server)
+# This also re-runs pb_setup_aap.yml with report server registration
 ./setup_infra.sh
 
 # 5. Reset circuits to starting state
 ./reset.sh
 ```
+
+All AAP, EDA, and NetBox resources are created by `pb_setup_aap.yml` using the `ansible.controller`, `ansible.eda`, and `netbox.netbox` collections. No Python dependencies required.
 
 ---
 

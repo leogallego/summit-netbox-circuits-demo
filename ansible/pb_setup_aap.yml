@@ -50,7 +50,7 @@
     aap_org_name: "Summit"
     github_repo: "https://github.com/my0373/summit-netbox-circuits-demo"
     github_branch: "main"
-    de_image: "quay.io/ansible/eda-decision-env:latest"
+    de_image: "registry.redhat.io/ansible-automation-platform-26/de-supported-rhel9:latest"
     eda_stream_token: "{{ lookup('env', 'EDA_STREAM_TOKEN') }}"
     aap_token: "{{ lookup('env', 'AAP_TOKEN') }}"
 

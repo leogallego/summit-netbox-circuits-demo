@@ -17,6 +17,7 @@ set +a
 export ANSIBLE_NET_USERNAME="${ROUTER_USERNAME:-iosuser}"
 export ANSIBLE_NET_PASSWORD="${ROUTER_PASSWORD:-}"
 
+
 REPORT_URL="${REPORT_URL:-https://<report_server_host>/failover_report.html}"
 
 echo "Resetting demo circuits to active..."

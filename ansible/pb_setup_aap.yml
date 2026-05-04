@@ -713,6 +713,7 @@
               - "{{ router_cred_name }}"
             state: present
 
+
     # ── Summary ───────────────────────────────────────────────────────────────
 
     - name: Setup complete

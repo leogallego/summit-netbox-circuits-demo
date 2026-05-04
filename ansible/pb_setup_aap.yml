@@ -174,9 +174,10 @@
         credential_type: "Container Registry"
         inputs:
           host: "{{ lookup('env', 'REGISTRY_HOST') | default('quay.io', true) }}"
-          username: "{{ lookup('env', 'REGISTRY_USERNAME') | default(omit, true) }}"
-          password: "{{ lookup('env', 'REGISTRY_PASSWORD') | default(omit, true) }}"
+          username: "{{ lookup('env', 'REGISTRY_USERNAME') }}"
+          password: "{{ lookup('env', 'REGISTRY_PASSWORD') }}"
         state: present
+      when: lookup('env', 'REGISTRY_USERNAME') | length > 0
       tags:
         - credentials
 
@@ -241,7 +242,7 @@
         name: "{{ ee_name }}"
         image: "{{ ee_image }}"
         organization: "{{ aap_org_name }}"
-        credential: "{{ registry_cred_name }}"
+        credential: "{{ registry_cred_name if lookup('env', 'REGISTRY_USERNAME') | length > 0 else omit }}"
         pull: missing
         state: present
       tags:

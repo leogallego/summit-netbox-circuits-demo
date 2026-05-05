@@ -21,10 +21,10 @@
 
   vars_files:
     - vars/netbox_creds.yml
+    - vars/report.yml
 
   vars:
     failed_circuit: "IPLC-GB-AT-PRI"
-    report_filename: "failover_report_collection.html"
     report_dir: "{{ playbook_dir }}/reports"
 
   tasks:
@@ -177,17 +177,100 @@
         msg: "Report generated: {{ report_dir }}/{{ report_filename }}"
         verbosity: 0
 
-# ── Play 2: Register report server (if configured) ────────────────────────────
+# ── Play 2: Publish report to GitHub Pages (if configured) ──────────────────
+
+- name: Publish failover report to GitHub Pages
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - vars/report.yml
+
+  vars:
+    report_dir: "{{ playbook_dir }}/reports"
+
+  tasks:
+    - name: Skip if no GitHub token configured
+      ansible.builtin.meta: end_play
+      when: github_token | length == 0
+
+    - name: Read generated report file
+      ansible.builtin.slurp:
+        src: "{{ report_dir }}/{{ report_filename }}"
+      register: report_content
+
+    - name: Check if report already exists on GitHub
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ github_repo }}/contents/{{ github_report_dir }}/{{ report_filename }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ github_token }}"
+          Accept: "application/vnd.github.v3+json"
+        status_code:
+          - 200
+          - 404
+      register: github_existing_file
+
+    - name: Set file SHA for update
+      ansible.builtin.set_fact:
+        github_file_sha: "{{ github_existing_file.json.sha | default('') }}"
+      when: github_existing_file.status == 200
+
+    - name: Set empty SHA for first deploy
+      ansible.builtin.set_fact:
+        github_file_sha: ""
+      when: github_existing_file.status == 404
+
+    - name: Build request body for GitHub Contents API
+      ansible.builtin.set_fact:
+        github_put_body: >-
+          {{
+            {
+              'message': 'Update failover report',
+              'content': report_content.content
+            }
+            | combine(
+                {'sha': github_file_sha}
+                if github_file_sha | length > 0
+                else {}
+              )
+          }}
+
+    - name: Push report to GitHub repository
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ github_repo }}/contents/{{ github_report_dir }}/{{ report_filename }}"
+        method: PUT
+        headers:
+          Authorization: "Bearer {{ github_token }}"
+          Accept: "application/vnd.github.v3+json"
+        body_format: json
+        body: "{{ github_put_body }}"
+        status_code:
+          - 200
+          - 201
+      register: github_push_result
+
+    - name: Report published to GitHub Pages
+      ansible.builtin.debug:
+        msg: >-
+          Report published to GitHub Pages:
+          https://{{ github_repo | regex_replace('/', '.github.io/') }}/{{ report_filename }}
+        verbosity: 0
+
+# ── Play 3: Register report server (if configured) ────────────────────────────
 
 - name: Register report server for publishing
   hosts: localhost
   gather_facts: false
 
+  vars_files:
+    - vars/report.yml
+
   vars:
     report_server_host: "{{ lookup('env', 'REPORT_SERVER_HOST') }}"
     report_server_port: "{{ lookup('env', 'REPORT_SERVER_PORT') | default('2222', true) }}"
     report_url: "{{ lookup('env', 'REPORT_URL') }}"
-    report_filename: "failover_report_collection.html"
 
   tasks:
     - name: Skip if no report server configured
@@ -203,7 +286,7 @@
         report_filename: "{{ report_filename }}"
         report_url: "{{ report_url | default('https://' + report_server_host + '/' + report_filename, true) }}"
 
-# ── Play 3: Publish report to web server ──────────────────────────────────────
+# ── Play 4: Publish report to web server ──────────────────────────────────────
 
 - name: Publish failover report to web server
   hosts: report_servers

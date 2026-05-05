@@ -1,0 +1,349 @@
+---
+# pb_launch_demo_router.yml
+#
+# Launches a Cisco CSR 1000v (IOS-XE 16.12) on AWS for demo router testing.
+# Reuses the existing ansible-student1 infrastructure (VPC, subnet, SG, key pair)
+# in us-east-1.
+#
+# Requires ee-supported-rhel9 (has both amazon.aws and cisco.ios collections).
+#
+# Prerequisites:
+#   - AWS credentials configured (env vars or ~/.aws/credentials)
+#   - PEM key file at tmp/rtr1-aws.pem for the ansible-key key pair
+#   - Crypto policy overrides in ansible/files/crypto-policies/
+#     (IOS-XE 16.12 only offers SHA-1 kex/hostkey, blocked by RHEL 9 DEFAULT policy)
+#
+# Usage:
+#   eval "$(aws configure export-credentials --format env)"
+#   ansible-navigator run ansible/pb_launch_demo_router.yml \
+#     --eei registry.redhat.io/ansible-automation-platform-26/ee-supported-rhel9:latest \
+#     --pp never \
+#     --penv AWS_ACCESS_KEY_ID --penv AWS_SECRET_ACCESS_KEY \
+#     --penv AWS_SESSION_TOKEN --penv AWS_DEFAULT_REGION \
+#     --eev ansible/files/crypto-policies/libssh-legacy.config:/etc/crypto-policies/back-ends/libssh.config:ro \
+#     --eev ansible/files/crypto-policies/opensslcnf-legacy.config:/etc/crypto-policies/back-ends/opensslcnf.config:ro
+#
+# Tags:
+#   launch  — provision EC2 instance and wait for SSH
+#   probe   — discover working SSH username via network_cli
+#   verify  — run show version / show ip ssh and update .env
+#
+# Skip launch if instance already running:
+#   ... --tags probe,verify -e router_ip=3.80.173.127
+#
+# Teardown:
+#   ... -e teardown=true
+
+- name: Launch demo router (CSR 1000v 16.12)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags:
+    - launch
+    - probe
+
+  vars:
+    aws_region: us-east-1
+    csr_ami: ami-08a3f2e4f8d4a2cd0
+    instance_type: t2.medium
+    subnet_id: subnet-07956201b6adda9b5
+    security_group: sg-058b88f5c51e6ff30
+    key_name: ansible-key
+    instance_name: RedhatSummitEDADemo-router-test
+    ssh_key_file: "{{ playbook_dir }}/../tmp/rtr1-aws.pem"
+    env_file: "{{ playbook_dir }}/../.env"
+    ssh_users_to_try:
+      - ec2-user
+      - cisco
+      - admin
+    teardown: false
+
+  tasks:
+
+    # ── Teardown path ─────────────────────────────────────────────────────────
+
+    - name: Teardown demo router
+      when: teardown | bool
+      tags:
+        - teardown
+        - never
+      block:
+        - name: Find demo router instances
+          amazon.aws.ec2_instance_info:
+            region: "{{ aws_region }}"
+            filters:
+              "tag:Name": "{{ instance_name }}"
+              instance-state-name:
+                - running
+                - stopped
+                - pending
+          register: existing_instances
+
+        - name: Terminate demo router instances
+          amazon.aws.ec2_instance:
+            region: "{{ aws_region }}"
+            instance_ids: "{{ existing_instances.instances | map(attribute='instance_id') | list }}"
+            state: absent
+            wait: true
+          when: existing_instances.instances | length > 0
+
+        - name: Report teardown result
+          ansible.builtin.debug:
+            msg: >-
+              {{ 'Terminated ' ~ (existing_instances.instances | length) ~ ' instance(s).'
+                 if existing_instances.instances | length > 0
+                 else 'No running demo router instances found.' }}
+            verbosity: 0
+
+        - name: End play after teardown
+          ansible.builtin.meta: end_play
+
+    # ── Setup path ────────────────────────────────────────────────────────────
+
+    - name: Check for existing demo router
+      amazon.aws.ec2_instance_info:
+        region: "{{ aws_region }}"
+        filters:
+          "tag:Name": "{{ instance_name }}"
+          instance-state-name:
+            - running
+            - pending
+      register: existing_check
+      tags:
+        - launch
+      when: router_ip is not defined
+
+    - name: Use existing instance if already running
+      when:
+        - router_ip is not defined
+        - existing_check.instances | default([]) | length > 0
+      tags:
+        - launch
+      block:
+        - name: Set router IP from existing instance
+          ansible.builtin.set_fact:
+            router_ip: "{{ existing_check.instances[0].public_ip_address }}"
+            instance_id: "{{ existing_check.instances[0].instance_id }}"
+
+        - name: Report existing instance
+          ansible.builtin.debug:
+            msg: "Demo router already running: {{ instance_id }} at {{ router_ip }}"
+            verbosity: 0
+
+    - name: Launch new instance
+      when:
+        - router_ip is not defined
+        - existing_check.instances | default([]) | length == 0
+      tags:
+        - launch
+      block:
+        - name: Verify SSH key file exists
+          ansible.builtin.stat:
+            path: "{{ ssh_key_file }}"
+          register: key_stat
+          failed_when: not key_stat.stat.exists
+
+        - name: Launch CSR 1000v 16.12 instance
+          amazon.aws.ec2_instance:
+            region: "{{ aws_region }}"
+            image_id: "{{ csr_ami }}"
+            instance_type: "{{ instance_type }}"
+            key_name: "{{ key_name }}"
+            vpc_subnet_id: "{{ subnet_id }}"
+            security_group: "{{ security_group }}"
+            network:
+              assign_public_ip: true
+            user_data: |
+              Section: IOS configuration
+              ip ssh version 2
+              ip ssh server algorithm hostkey ecdsa-sha2-nistp256 rsa-sha2-512 rsa-sha2-256
+              ip ssh server algorithm kex ecdh-sha2-nistp256 ecdh-sha2-nistp384 ecdh-sha2-nistp521
+              ip ssh server algorithm authentication publickey keyboard
+              event manager applet ECDSA-KEYGEN authorization bypass
+               event timer countdown time 60
+               action 1.0 cli command "enable"
+               action 2.0 cli command "configure terminal"
+               action 3.0 cli command "crypto key generate ec keysize 256 label SSHKEY"
+               action 4.0 cli command "end"
+               action 5.0 cli command "write memory"
+               action 6.0 cli command "no event manager applet ECDSA-KEYGEN"
+               action 7.0 cli command "write memory"
+            tags:
+              Name: "{{ instance_name }}"
+            state: running
+            wait: true
+            wait_timeout: 300
+          register: ec2_result
+
+        - name: Set router IP from new instance
+          ansible.builtin.set_fact:
+            router_ip: "{{ ec2_result.instances[0].public_ip_address }}"
+            instance_id: "{{ ec2_result.instances[0].instance_id }}"
+
+        - name: Report launched instance
+          ansible.builtin.debug:
+            msg: "Launched {{ instance_id }} — waiting for IOS-XE to boot at {{ router_ip }}"
+            verbosity: 0
+
+    - name: Wait for SSH port to open (IOS-XE boot takes 3-5 min)
+      ansible.builtin.wait_for:
+        host: "{{ router_ip }}"
+        port: 22
+        timeout: 420
+        sleep: 15
+      tags:
+        - launch
+
+    - name: Wait for EEM applet to generate ECDSA keys (fires at 60s post-boot)
+      ansible.builtin.pause:
+        seconds: 90
+        prompt: "Waiting for ECDSA key generation..."
+      tags:
+        - launch
+
+    # ── Build probe inventory ─────────────────────────────────────────────────
+
+    - name: Add router candidates to in-memory inventory
+      ansible.builtin.add_host:
+        name: "rtr_{{ item }}"
+        groups: demo_routers_probe
+        ansible_host: "{{ router_ip }}"
+        ansible_user: "{{ item }}"
+        ansible_network_os: cisco.ios.ios
+        ansible_connection: ansible.netcommon.network_cli
+        ansible_network_cli_ssh_type: libssh
+        ansible_ssh_private_key_file: "{{ ssh_key_file }}"
+        ansible_host_key_checking: false
+      loop: "{{ ssh_users_to_try }}"
+      tags:
+        - probe
+
+# ── Play 2: Probe SSH username via network_cli ────────────────────────────────
+
+- name: Probe IOS-XE SSH credentials
+  hosts: demo_routers_probe
+  gather_facts: false
+  serial: 1
+  ignore_unreachable: true
+  tags:
+    - probe
+
+  tasks:
+    - name: Attempt show version with {{ ansible_user }}
+      cisco.ios.ios_command:
+        commands:
+          - show version | include uptime
+      register: probe_result
+      ignore_errors: true
+
+    - name: Mark working username
+      ansible.builtin.set_fact:
+        working_user: "{{ ansible_user }}"
+        working_host: "{{ ansible_host }}"
+      delegate_to: localhost
+      delegate_facts: true
+      when: probe_result is not failed and probe_result is not unreachable
+
+# ── Play 3: Verify and persist results ────────────────────────────────────────
+
+- name: Verify and persist router config
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags:
+    - verify
+
+  vars:
+    env_file: "{{ playbook_dir }}/../.env"
+    ssh_key_file: "{{ playbook_dir }}/../tmp/rtr1-aws.pem"
+
+  tasks:
+    - name: Fail if no SSH username worked
+      ansible.builtin.fail:
+        msg: >-
+          Could not connect to router via network_cli with any candidate username.
+          Check that the PEM key matches the instance key pair and that IOS-XE has finished booting.
+      when: working_user is not defined
+
+    - name: Report working credentials
+      ansible.builtin.debug:
+        msg: "network_cli (libssh) works with user '{{ working_user }}' at {{ working_host }}"
+        verbosity: 0
+
+    - name: Add verified router to inventory
+      ansible.builtin.add_host:
+        name: demo_router
+        groups: demo_routers
+        ansible_host: "{{ working_host }}"
+        ansible_user: "{{ working_user }}"
+        ansible_network_os: cisco.ios.ios
+        ansible_connection: ansible.netcommon.network_cli
+        ansible_network_cli_ssh_type: libssh
+        ansible_ssh_private_key_file: "{{ ssh_key_file }}"
+        ansible_host_key_checking: false
+
+    - name: Update ROUTER_IP in .env
+      ansible.builtin.lineinfile:
+        path: "{{ env_file }}"
+        regexp: "^ROUTER_IP="
+        line: "ROUTER_IP={{ working_host }}"
+        create: true
+        mode: "0600"
+
+    - name: Update ROUTER_USERNAME in .env
+      ansible.builtin.lineinfile:
+        path: "{{ env_file }}"
+        regexp: "^ROUTER_USERNAME="
+        line: "ROUTER_USERNAME={{ working_user }}"
+        create: true
+        mode: "0600"
+
+# ── Play 4: Full IOS connectivity test ────────────────────────────────────────
+
+- name: Verify IOS-XE connectivity
+  hosts: demo_routers
+  gather_facts: false
+  tags:
+    - verify
+
+  tasks:
+    - name: Run show version
+      cisco.ios.ios_command:
+        commands:
+          - show version | include uptime|Version
+      register: version_output
+
+    - name: Display IOS-XE version
+      ansible.builtin.debug:
+        msg: "{{ version_output.stdout_lines }}"
+        verbosity: 0
+
+    - name: Run show ip ssh
+      cisco.ios.ios_command:
+        commands:
+          - show ip ssh
+      register: ssh_output
+
+    - name: Display SSH config
+      ansible.builtin.debug:
+        msg: "{{ ssh_output.stdout_lines }}"
+        verbosity: 0
+
+    - name: Setup complete
+      ansible.builtin.debug:
+        msg: |
+          Demo router is ready.
+
+            IP:       {{ ansible_host }}
+            User:     {{ ansible_user }}
+            SSH type: libssh
+
+          Next steps:
+            1. Register this router's IP in NetBox as primary_ip4
+            2. Run the failover playbook:
+                 ./run-playbook.sh ansible/pb_circuit_failover.yml
+
+            3. Teardown when done:
+                 ansible-navigator run ansible/pb_launch_demo_router.yml -e teardown=true \
+                   --eei registry.redhat.io/ansible-automation-platform-26/ee-supported-rhel9:latest
+        verbosity: 0

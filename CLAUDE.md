@@ -14,7 +14,7 @@ NetBox Copilot → PATCH circuit to offline
   → EDA rulebook evaluates condition → launches workflow on Automation Controller
   → AAP "Circuit Failover Workflow":
       Step 1: pb_circuit_failover.yml (query NetBox via nb_lookup, discover backup, push router config, update NetBox via netbox_circuit)
-      Step 2: pb_deploy_report.yml (re-query state, render Jinja2 HTML report, deploy to report server via SSH)
+      Step 2: pb_deploy_report.yml (re-query state, render Jinja2 HTML report, publish to GitHub Pages and/or deploy to report server via SSH)
   → Visual Explorer updates live, report served on HTTPS
 ```
 
@@ -55,6 +55,8 @@ uv run --with Pillow --with python-pptx python slides/make_deck.py
 
 All secrets and infrastructure variables live in `.env` (gitignored). Playbooks read credentials via `ansible/vars/netbox_creds.yml` and `lookup('env', ...)` — either source `.env` locally or rely on AAP credential injection (NetBox credential type injects `NETBOX_API` + `NETBOX_TOKEN`).
 
+Report settings and GitHub Pages credentials are in `ansible/vars/report.yml` — imported via `vars_files:` in `pb_deploy_report.yml`. GitHub credential type in AAP injects `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_REPORT_DIR` as env vars.
+
 Infrastructure variables (`REPORT_SERVER_HOST`, `ROUTER_IP`, etc.) are written to `.env` by `setup_infra.sh` from Terraform outputs, or set manually.
 
 ## Key Design Decisions
@@ -63,6 +65,7 @@ Infrastructure variables (`REPORT_SERVER_HOST`, `ROUTER_IP`, etc.) are written t
 - **netbox.netbox collection**: All NetBox interactions use `nb_lookup` (reads) and `netbox_circuit` (status updates). No raw `ansible.builtin.uri` API calls.
 - **Simulated router operations**: Router config pushes are `debug` tasks, not real device interactions. The demo has no actual network devices.
 - **Report server**: EC2 instance provisioned by Terraform, nginx with HTTPS, SSH on port 2222.
+- **GitHub Pages as default report target**: The HTML failover report is published to the repo's `docs/` directory via the GitHub Contents API (`ansible.builtin.uri`). GitHub Pages serves it from the `main` branch `/docs` path. The SSH/EC2 report server is kept as a conditional fallback.
 - **NetBox circuit tag `dd`**: All demo-relevant circuits are tagged `dd` in NetBox. This tag scopes all queries — backup discovery, reset, and report generation only touch `dd`-tagged circuits.
 - **NetBox v4.5 token compatibility**: v2 tokens (default on NetBox 4.5+) work with pynetbox >= 7.6.0. The `network-netbox-eda-ee` EE ships pynetbox 7.6.1. Pass the full `nbt_<key>.<token>` format.
 - **Webhook body template**: Use empty body_template (NetBox default payload). Custom templates with `{{ data | tojson }}` fail on NetBox v4.5.

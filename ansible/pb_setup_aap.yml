@@ -90,6 +90,11 @@
     eda_activation_name: "{{ aap_org_name }} EDA Circuit Failover"
     # Report
     report_filename: "failover_report_collection.html"
+    # GitHub Pages
+    github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('', true) }}"
+    github_repo: "{{ lookup('env', 'GITHUB_REPO') | default('leogallego/summit-netbox-circuits-demo', true) }}"
+    github_report_dir: "{{ lookup('env', 'GITHUB_REPORT_DIR') | default('docs', true) }}"
+    github_cred_name: "{{ aap_org_name }} GitHub"
     # NetBox resource names
     netbox_webhook_name: "{{ aap_org_name }} AAP Circuit Failover"
 
@@ -162,6 +167,53 @@
           NETBOX_API: "{{ netbox_url }}"
           NETBOX_TOKEN: "{{ netbox_token }}"
         state: present
+      tags:
+        - credentials
+
+    # ── Controller: GitHub credential type ──────────────────────────────────
+
+    - name: Create GitHub credential type
+      ansible.controller.credential_type:
+        name: "GitHub"
+        kind: cloud
+        inputs:
+          fields:
+            - id: GITHUB_TOKEN
+              type: string
+              label: "Personal Access Token"
+              secret: true
+            - id: GITHUB_REPO
+              type: string
+              label: "Repository (owner/name)"
+            - id: GITHUB_REPORT_DIR
+              type: string
+              label: "Report directory in repo"
+          required:
+            - GITHUB_TOKEN
+            - GITHUB_REPO
+        injectors:
+          env:
+            GITHUB_TOKEN: "{{ '{{' }} GITHUB_TOKEN {{ '}}' }}"
+            GITHUB_REPO: "{{ '{{' }} GITHUB_REPO {{ '}}' }}"
+            GITHUB_REPORT_DIR: "{{ '{{' }} GITHUB_REPORT_DIR {{ '}}' }}"
+        state: present
+      when: github_token | length > 0
+      tags:
+        - credentials
+
+    # ── Controller: GitHub credential ─────────────────────────────────────────
+
+    - name: Create GitHub credential
+      ansible.controller.credential:
+        name: "{{ github_cred_name }}"
+        organization: "{{ aap_org_name }}"
+        credential_type: "GitHub"
+        inputs:
+          GITHUB_TOKEN: "{{ github_token }}"
+          GITHUB_REPO: "{{ github_repo }}"
+          GITHUB_REPORT_DIR: "{{ github_report_dir }}"
+        state: present
+      when: github_token | length > 0
       tags:
         - credentials
 
@@ -285,11 +337,14 @@
         ask_variables_on_launch: true
         extra_vars:
           failed_circuit: "IPLC-GB-PH-PRI"
-        credentials:
-          - "{{ netbox_cred_name }}"
+        credentials: >-
+          {{
+            [netbox_cred_name]
+            + ([github_cred_name] if github_token | length > 0 else [])
+          }}
         description: >-
-          Generates and deploys the HTML failover report
-          to the report web server.
+          Generates and deploys the HTML failover report.
+          Publishes to GitHub Pages when GitHub credential is configured.
         state: present
       tags:
         - job_templates
@@ -771,6 +826,7 @@
             Controller Resources:
               Organization:     {{ aap_org_name }}
               NetBox Cred:      {{ netbox_cred_name }}
+              {{ 'GitHub Cred:     ' ~ github_cred_name if github_token | length > 0 else 'GitHub Cred:     (not configured — report published locally only)' }}
               Inventory:        {{ inventory_name }}
               Project:          {{ controller_project_name }}
               JT Failover:      {{ jt_failover_name }}

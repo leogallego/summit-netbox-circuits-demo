@@ -5,8 +5,6 @@
 # Reuses the existing ansible-student1 infrastructure (VPC, subnet, SG, key pair)
 # in us-east-1.
 #
-# Requires ee-supported-rhel9 (has both amazon.aws and cisco.ios collections).
-#
 # Prerequisites:
 #   - AWS credentials configured (env vars or ~/.aws/credentials)
 #   - PEM key file at tmp/rtr1-aws.pem for the ansible-key key pair
@@ -15,9 +13,7 @@
 #
 # Usage:
 #   eval "$(aws configure export-credentials --format env)"
-#   ansible-navigator run ansible/pb_launch_demo_router.yml \
-#     --eei registry.redhat.io/ansible-automation-platform-26/ee-supported-rhel9:latest \
-#     --pp never \
+#   ./run-playbook.sh ansible/pb_launch_demo_router.yml \
 #     --penv AWS_ACCESS_KEY_ID --penv AWS_SECRET_ACCESS_KEY \
 #     --penv AWS_SESSION_TOKEN --penv AWS_DEFAULT_REGION \
 #     --eev ansible/files/crypto-policies/libssh-legacy.config:/etc/crypto-policies/back-ends/libssh.config:ro \
@@ -398,6 +394,8 @@
                  ./run-playbook.sh ansible/pb_circuit_failover.yml
 
             3. Teardown when done:
-                 ansible-navigator run ansible/pb_launch_demo_router.yml -e teardown=true \
-                   --eei registry.redhat.io/ansible-automation-platform-26/ee-supported-rhel9:latest
+                 ./run-playbook.sh ansible/pb_launch_demo_router.yml \
+                   --tags teardown -e teardown=true \
+                   --penv AWS_ACCESS_KEY_ID --penv AWS_SECRET_ACCESS_KEY \
+                   --penv AWS_SESSION_TOKEN --penv AWS_DEFAULT_REGION
         verbosity: 0

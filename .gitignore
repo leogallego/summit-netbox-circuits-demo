@@ -34,5 +34,19 @@ tmp/
 *-artifact-*.json
 ansible-navigator.log
 
-# Report backups
+# Report output (rendered by pb_deploy_report.yml, pushed to GitHub Pages via API)
+ansible/reports/*.html
 ansible/reports/*.html.*~
+
+# IDE and editor config
+.idea/
+.vscode/
+
+# Local shell dotfiles (codespace/devcontainer artifacts)
+.bash_profile
+.bashrc
+.profile
+.zprofile
+.zshrc
+.gitconfig
+.ripgreprc

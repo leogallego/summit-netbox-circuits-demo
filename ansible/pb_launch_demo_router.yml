@@ -50,6 +50,7 @@
     security_group: sg-058b88f5c51e6ff30
     key_name: ansible-key
     instance_name: RedhatSummitEDADemo-router-test
+    eip_tag_name: RedhatSummitEDADemo-router-eip
     ssh_key_file: "{{ playbook_dir }}/../tmp/rtr1-aws.pem"
     env_file: "{{ playbook_dir }}/../.env"
     ssh_users_to_try:
@@ -79,6 +80,28 @@
                 - pending
           register: existing_instances
 
+        - name: Disassociate and release EIP
+          amazon.aws.ec2_eip:
+            region: "{{ aws_region }}"
+            device_id: "{{ item.instance_id }}"
+            state: absent
+            in_vpc: true
+          loop: "{{ existing_instances.instances }}"
+          loop_control:
+            label: "{{ item.instance_id }}"
+          ignore_errors: true
+          when: existing_instances.instances | length > 0
+
+        - name: Release unassociated EIPs by tag
+          amazon.aws.ec2_eip:
+            region: "{{ aws_region }}"
+            state: absent
+            in_vpc: true
+            reuse_existing_ip_allowed: true
+            tag_name: Name
+            tag_value: "{{ eip_tag_name }}"
+          ignore_errors: true
+
         - name: Terminate demo router instances
           amazon.aws.ec2_instance:
             region: "{{ aws_region }}"
@@ -90,7 +113,7 @@
         - name: Report teardown result
           ansible.builtin.debug:
             msg: >-
-              {{ 'Terminated ' ~ (existing_instances.instances | length) ~ ' instance(s).'
+              {{ 'Terminated ' ~ (existing_instances.instances | length) ~ ' instance(s) and released EIP.'
                  if existing_instances.instances | length > 0
                  else 'No running demo router instances found.' }}
             verbosity: 0
@@ -120,14 +143,29 @@
       tags:
         - launch
       block:
-        - name: Set router IP from existing instance
+        - name: Set instance ID from existing instance
           ansible.builtin.set_fact:
-            router_ip: "{{ existing_check.instances[0].public_ip_address }}"
             instance_id: "{{ existing_check.instances[0].instance_id }}"
+
+        - name: Ensure EIP is allocated and associated with existing instance
+          amazon.aws.ec2_eip:
+            region: "{{ aws_region }}"
+            device_id: "{{ instance_id }}"
+            in_vpc: true
+            reuse_existing_ip_allowed: true
+            tag_name: Name
+            tag_value: "{{ eip_tag_name }}"
+            tags:
+              Name: "{{ eip_tag_name }}"
+          register: existing_eip
+
+        - name: Set router IP from EIP
+          ansible.builtin.set_fact:
+            router_ip: "{{ existing_eip.public_ip }}"
 
         - name: Report existing instance
           ansible.builtin.debug:
-            msg: "Demo router already running: {{ instance_id }} at {{ router_ip }}"
+            msg: "Demo router already running: {{ instance_id }} at {{ router_ip }} (EIP)"
             verbosity: 0
 
     - name: Launch new instance
@@ -175,14 +213,29 @@
             wait_timeout: 300
           register: ec2_result
 
-        - name: Set router IP from new instance
+        - name: Set instance ID from new instance
           ansible.builtin.set_fact:
-            router_ip: "{{ ec2_result.instances[0].public_ip_address }}"
             instance_id: "{{ ec2_result.instances[0].instance_id }}"
+
+        - name: Allocate and associate EIP with new instance
+          amazon.aws.ec2_eip:
+            region: "{{ aws_region }}"
+            device_id: "{{ instance_id }}"
+            in_vpc: true
+            reuse_existing_ip_allowed: true
+            tag_name: Name
+            tag_value: "{{ eip_tag_name }}"
+            tags:
+              Name: "{{ eip_tag_name }}"
+          register: new_eip
+
+        - name: Set router IP from EIP
+          ansible.builtin.set_fact:
+            router_ip: "{{ new_eip.public_ip }}"
 
         - name: Report launched instance
           ansible.builtin.debug:
-            msg: "Launched {{ instance_id }} — waiting for IOS-XE to boot at {{ router_ip }}"
+            msg: "Launched {{ instance_id }} with EIP {{ router_ip }} — waiting for IOS-XE to boot"
             verbosity: 0
 
     - name: Wait for SSH port to open (IOS-XE boot takes 3-5 min)

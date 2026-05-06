@@ -251,6 +251,7 @@
       ansible.builtin.pause:
         seconds: 90
         prompt: "Waiting for ECDSA key generation..."
+      when: ec2_result is defined and ec2_result is changed
       tags:
         - launch
 

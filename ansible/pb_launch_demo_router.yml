@@ -6,18 +6,13 @@
 # in us-east-1.
 #
 # Prerequisites:
-#   - AWS credentials configured (env vars or ~/.aws/credentials)
+#   - AWS credentials configured (env vars, ~/.aws/credentials, or SSO)
 #   - PEM key file at tmp/rtr1-aws.pem for the ansible-key key pair
-#   - Crypto policy overrides in ansible/files/crypto-policies/
-#     (IOS-XE 16.12 only offers SHA-1 kex/hostkey, blocked by RHEL 9 DEFAULT policy)
+#   - For IOS-XE < 17: set IOSXE_VERSION=16.12 in .env (run-playbook.sh
+#     mounts SHA-1 crypto policy overrides automatically)
 #
 # Usage:
-#   eval "$(aws configure export-credentials --format env)"
-#   ./run-playbook.sh ansible/pb_launch_demo_router.yml \
-#     --penv AWS_ACCESS_KEY_ID --penv AWS_SECRET_ACCESS_KEY \
-#     --penv AWS_SESSION_TOKEN --penv AWS_DEFAULT_REGION \
-#     --eev ansible/files/crypto-policies/libssh-legacy.config:/etc/crypto-policies/back-ends/libssh.config:ro \
-#     --eev ansible/files/crypto-policies/opensslcnf-legacy.config:/etc/crypto-policies/back-ends/opensslcnf.config:ro
+#   ./run-playbook.sh ansible/pb_launch_demo_router.yml
 #
 # Tags:
 #   launch  — provision EC2 instance and wait for SSH
@@ -395,7 +390,5 @@
 
             3. Teardown when done:
                  ./run-playbook.sh ansible/pb_launch_demo_router.yml \
-                   --tags teardown -e teardown=true \
-                   --penv AWS_ACCESS_KEY_ID --penv AWS_SECRET_ACCESS_KEY \
-                   --penv AWS_SESSION_TOKEN --penv AWS_DEFAULT_REGION
+                   --tags teardown -e teardown=true
         verbosity: 0

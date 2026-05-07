@@ -124,6 +124,36 @@
       loop_control:
         label: "{{ item.name }}"
 
+    # ── Device interfaces ─────────────────────────────────────────────────
+
+    - name: Create router interfaces
+      netbox.netbox.netbox_device_interface:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        validate_certs: "{{ netbox_validate_certs }}"
+        data:
+          device: "{{ item.device }}"
+          name: "{{ item.name }}"
+          type: "1000Base-T (1GE)"
+          enabled: true
+          description: "{{ item.description }}"
+        state: present
+      loop:
+        - device: gb-rtr-01
+          name: GigabitEthernet2
+          description: "PRI circuit uplink"
+        - device: gb-rtr-01
+          name: GigabitEthernet3
+          description: "SEC circuit uplink"
+        - device: us-rtr-01
+          name: GigabitEthernet2
+          description: "PRI circuit uplink"
+        - device: us-rtr-01
+          name: GigabitEthernet3
+          description: "SEC circuit uplink"
+      loop_control:
+        label: "{{ item.device }}:{{ item.name }}"
+
     # ── Circuits ──────────────────────────────────────────────────────────────
 
     - name: Create circuits
@@ -196,15 +226,91 @@
       loop_control:
         label: "{{ item.circuit }} {{ item.side }}-side"
 
+    # ── IP addresses (point-to-point /30 links) ─────────────────────────
+
+    - name: Create interface IP addresses
+      netbox.netbox.netbox_ip_address:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        validate_certs: "{{ netbox_validate_certs }}"
+        data:
+          address: "{{ item.address }}"
+          status: active
+          assigned_object:
+            name: "{{ item.interface }}"
+            device: "{{ item.device }}"
+          description: "{{ item.description }}"
+        state: present
+      loop:
+        - address: "172.16.0.2/30"
+          device: gb-rtr-01
+          interface: GigabitEthernet2
+          description: "PRI link — gw 172.16.0.1"
+        - address: "172.16.1.2/30"
+          device: gb-rtr-01
+          interface: GigabitEthernet3
+          description: "SEC link — gw 172.16.1.1"
+        - address: "172.16.0.6/30"
+          device: us-rtr-01
+          interface: GigabitEthernet2
+          description: "PRI link — gw 172.16.0.5"
+        - address: "172.16.1.6/30"
+          device: us-rtr-01
+          interface: GigabitEthernet3
+          description: "SEC link — gw 172.16.1.5"
+      loop_control:
+        label: "{{ item.device }}:{{ item.interface }} → {{ item.address }}"
+
+    # ── Cables (circuit termination ↔ router interface) ───────────────
+
+    - name: Create cables
+      netbox.netbox.netbox_cable:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        validate_certs: "{{ netbox_validate_certs }}"
+        data:
+          termination_a_type: circuits.circuittermination
+          termination_a:
+            circuit: "{{ item.circuit }}"
+            term_side: "{{ item.term_side }}"
+          termination_b_type: dcim.interface
+          termination_b:
+            device: "{{ item.device }}"
+            name: "{{ item.interface }}"
+          status: connected
+        state: present
+      loop:
+        - circuit: IPLC-GB-AT-PRI
+          term_side: A
+          device: gb-rtr-01
+          interface: GigabitEthernet2
+        - circuit: IPLC-GB-AT-PRI
+          term_side: Z
+          device: us-rtr-01
+          interface: GigabitEthernet2
+        - circuit: IPLC-GB-AT-SEC
+          term_side: A
+          device: gb-rtr-01
+          interface: GigabitEthernet3
+        - circuit: IPLC-GB-AT-SEC
+          term_side: Z
+          device: us-rtr-01
+          interface: GigabitEthernet3
+      loop_control:
+        label: "{{ item.circuit }} {{ item.term_side }}-side ↔ {{ item.device }}:{{ item.interface }}"
+
     # ── Summary ───────────────────────────────────────────────────────────────
 
     - name: Seed complete
       ansible.builtin.debug:
         msg: |
           NetBox seeded with demo data:
-            Sites:    GB-Bristol, US-Atlanta
-            Provider: Global Telecom
-            Circuits: IPLC-GB-AT-PRI (active), IPLC-GB-AT-SEC (offline)
-            Routers:  gb-rtr-01, us-rtr-01
-            Tag:      dd (applied to all circuits, routers)
+            Sites:      GB-Bristol, US-Atlanta
+            Provider:   Global Telecom
+            Circuits:   IPLC-GB-AT-PRI (active), IPLC-GB-AT-SEC (offline)
+            Routers:    gb-rtr-01, us-rtr-01
+            Interfaces: GigabitEthernet2 (PRI), GigabitEthernet3 (SEC) per router
+            IPs:        /30 point-to-point links on each interface
+            Cables:     circuit terminations ↔ router interfaces
+            Tag:        dd (applied to all circuits, routers)
         verbosity: 0

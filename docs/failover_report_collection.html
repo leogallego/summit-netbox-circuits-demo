@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Circuit Failover Report — IPLC-GB-AT-SEC</title>
+<title>Circuit Failover Report — IPLC-US-AR-PRI</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0D1B2A; color: #e2e8f0; padding: 2rem; }
@@ -79,7 +79,7 @@
 <div class="header">
   <div class="header-text">
     <h1>Circuit Failover Report</h1>
-    <p class="subtitle">GB-Bristol &harr; US-Atlanta &nbsp;|&nbsp; 2026-05-07T07:16:13Z &nbsp;|&nbsp; Source: NetBox SoT</p>
+    <p class="subtitle">US-Atlanta &harr; AR-Buenos-Aires &nbsp;|&nbsp; 2026-05-07T07:24:16Z &nbsp;|&nbsp; Source: NetBox SoT</p>
     <span class="badge-automated">Fully Automated</span>
   </div>
 </div>
@@ -91,23 +91,23 @@
     <svg viewBox="0 0 800 240" xmlns="http://www.w3.org/2000/svg" style="max-width: 700px; width: 100%;">
       <!-- Sites -->
       <rect x="20" y="60" width="200" height="90" rx="8" fill="#142A3E" stroke="#1e3a52" stroke-width="2"/>
-      <text x="120" y="95" text-anchor="middle" fill="#00C2A8" font-size="20" font-weight="700">GB-Bristol</text>
-      <text x="120" y="120" text-anchor="middle" fill="#B0BCCC" font-size="15">gb-rtr-01</text>
+      <text x="120" y="95" text-anchor="middle" fill="#00C2A8" font-size="20" font-weight="700">US-Atlanta</text>
+      <text x="120" y="120" text-anchor="middle" fill="#B0BCCC" font-size="15">us-rtr-01</text>
 
       <rect x="580" y="60" width="200" height="90" rx="8" fill="#142A3E" stroke="#1e3a52" stroke-width="2"/>
-      <text x="680" y="95" text-anchor="middle" fill="#00C2A8" font-size="20" font-weight="700">US-Atlanta</text>
-      <text x="680" y="120" text-anchor="middle" fill="#B0BCCC" font-size="15">us-rtr-01</text>
+      <text x="680" y="95" text-anchor="middle" fill="#00C2A8" font-size="20" font-weight="700">AR-Buenos-Aires</text>
+      <text x="680" y="120" text-anchor="middle" fill="#B0BCCC" font-size="15">ar-rtr-01</text>
 
       <!-- Failed circuit (crossed out) -->
       <line x1="220" y1="85" x2="580" y2="85" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="8,4" opacity="0.6"/>
       <line x1="380" y1="74" x2="420" y2="96" stroke="#ef4444" stroke-width="3"/>
       <line x1="420" y1="74" x2="380" y2="96" stroke="#ef4444" stroke-width="3"/>
-      <text x="400" y="70" text-anchor="middle" fill="#ef4444" font-size="15" font-weight="700">IPLC-GB-AT-SEC</text>
+      <text x="400" y="70" text-anchor="middle" fill="#ef4444" font-size="15" font-weight="700">IPLC-US-AR-PRI</text>
 
       <!-- Backup circuit (active) -->
       <line x1="220" y1="125" x2="580" y2="125" stroke="#00C2A8" stroke-width="3"/>
       <polygon points="572,118 584,125 572,132" fill="#00C2A8"/>
-      <text x="400" y="150" text-anchor="middle" fill="#00C2A8" font-size="15" font-weight="700">IPLC-GB-AT-PRI</text>
+      <text x="400" y="150" text-anchor="middle" fill="#00C2A8" font-size="15" font-weight="700">IPLC-US-AR-SEC</text>
       <text x="400" y="172" text-anchor="middle" fill="#4ade80" font-size="14" font-weight="600">ACTIVE</text>
     </svg>
   </div>
@@ -120,24 +120,24 @@
 
     <div class="circuit failed">
       <div class="label">Failed Circuit</div>
-      <div class="cid">IPLC-GB-AT-SEC</div>
+      <div class="cid">IPLC-US-AR-PRI</div>
       <div class="field"><span class="key">Provider</span><span class="val">Global Telecom</span></div>
       <div class="field"><span class="key">Type</span><span class="val">IPLC</span></div>
       <div class="field"><span class="key">Status</span><span class="val"><span class="badge offline">Offline</span></span></div>
-      <div class="field"><span class="key">Committed Rate</span><span class="val">5000 Mbps</span></div>
-      <div class="field"><span class="key">A-side</span><span class="val">GB-Bristol</span></div>
-      <div class="field"><span class="key">Z-side</span><span class="val">US-Atlanta</span></div>
+      <div class="field"><span class="key">Committed Rate</span><span class="val">10000 Mbps</span></div>
+      <div class="field"><span class="key">A-side</span><span class="val">US-Atlanta</span></div>
+      <div class="field"><span class="key">Z-side</span><span class="val">AR-Buenos-Aires</span></div>
     </div>
 
     <div class="circuit backup">
       <div class="label">Active Backup</div>
-      <div class="cid">IPLC-GB-AT-PRI</div>
+      <div class="cid">IPLC-US-AR-SEC</div>
       <div class="field"><span class="key">Provider</span><span class="val">Global Telecom</span></div>
       <div class="field"><span class="key">Type</span><span class="val">IPLC</span></div>
       <div class="field"><span class="key">Status</span><span class="val"><span class="badge active">Active</span></span></div>
-      <div class="field"><span class="key">Committed Rate</span><span class="val">10000 Mbps</span></div>
-      <div class="field"><span class="key">A-side</span><span class="val">GB-Bristol</span></div>
-      <div class="field"><span class="key">Z-side</span><span class="val">US-Atlanta</span></div>
+      <div class="field"><span class="key">Committed Rate</span><span class="val">5000 Mbps</span></div>
+      <div class="field"><span class="key">A-side</span><span class="val">US-Atlanta</span></div>
+      <div class="field"><span class="key">Z-side</span><span class="val">AR-Buenos-Aires</span></div>
     </div>
   </div>
 </div>
@@ -147,35 +147,39 @@
   <h2>Bandwidth Impact</h2>
   <div class="comparison">
     <div class="metric manual">
-      <div class="number">5000 Mbps</div>
-      <div class="desc">Primary circuit<br>IPLC-GB-AT-SEC<br>Global Telecom</div>
+      <div class="number">10000 Mbps</div>
+      <div class="desc">Primary circuit<br>IPLC-US-AR-PRI<br>Global Telecom</div>
     </div>
     <div class="metric auto">
-      <div class="number">10000 Mbps</div>
-      <div class="desc">Backup circuit<br>IPLC-GB-AT-PRI<br>Global Telecom</div>
+      <div class="number">5000 Mbps</div>
+      <div class="desc">Backup circuit<br>IPLC-US-AR-SEC<br>Global Telecom</div>
     </div>
   </div>
   <div class="bw-bar-container" style="margin-top: 1.5rem;">
     <div class="bw-bar-label">
       <span>Capacity utilisation</span>
-      <span>200% of primary</span>
+      <span>50% of primary</span>
     </div>
     <div class="bw-bar">
-      <div class="bw-bar-fill backup" style="width: 200%;"></div>
+      <div class="bw-bar-fill backup" style="width: 50%;"></div>
     </div>
   </div>
+  <p style="font-size: 0.78rem; color: #f59e0b; margin-top: 0.75rem;">
+    <span class="badge warning">Degraded</span>
+    &nbsp; Operating at 50% of primary capacity. 5000 Mbps reduction.
+  </p>
 </div>
 
 <!-- Backup Selection -->
 <div class="card">
   <h2>Backup Selection — 1 Candidate(s) Evaluated</h2>
   <p style="font-size: 0.82rem; color: #B0BCCC; margin-bottom: 0.75rem;">
-    Backup selected automatically from NetBox — highest commit rate between GB-Bristol and US-Atlanta.
+    Backup selected automatically from NetBox — highest commit rate between US-Atlanta and AR-Buenos-Aires.
   </p>
   <ul class="candidates">
     <li class="selected">
-      <span class="cid-label">IPLC-GB-AT-PRI &#10003; selected</span>
-      <span class="meta">Global Telecom &mdash; 10000 Mbps</span>
+      <span class="cid-label">IPLC-US-AR-SEC &#10003; selected</span>
+      <span class="meta">Global Telecom &mdash; 5000 Mbps</span>
     </li>
   </ul>
 </div>
@@ -188,12 +192,12 @@
   </p>
   <ul class="router-list">
     <li>
-      <span class="name">gb-rtr-01</span>
-      <span class="site">GB-Bristol</span>
-    </li>
-    <li>
       <span class="name">us-rtr-01</span>
       <span class="site">US-Atlanta</span>
+    </li>
+    <li>
+      <span class="name">ar-rtr-01</span>
+      <span class="site">AR-Buenos-Aires</span>
     </li>
   </ul>
 </div>
@@ -205,7 +209,7 @@
 
     <div class="step detect">
       <h3>Circuit failure detected <span class="ts">T+0.0s</span></h3>
-      <p><strong>IPLC-GB-AT-SEC</strong> status changed to Offline in NetBox.
+      <p><strong>IPLC-US-AR-PRI</strong> status changed to Offline in NetBox.
          Event-Driven Ansible detected the circuit update via the NetBox event rule
          and triggered the <strong>Circuit Failover Workflow</strong> in
          Ansible Automation Platform.</p>
@@ -215,29 +219,29 @@
       <h3>Failover workflow launched <span class="ts">T+2.1s</span></h3>
       <p>Ansible Automation Platform received the event and launched the
          <strong>Circuit Failover Workflow</strong> with
-         <code>failed_circuit=IPLC-GB-AT-SEC</code>.
+         <code>failed_circuit=IPLC-US-AR-PRI</code>.
          Workflow Step 1: <em>Circuit Failover</em> job template started.</p>
     </div>
 
     <div class="step discover">
       <h3>Backup path discovered from NetBox SoT <span class="ts">T+5.4s</span></h3>
       <p>The Ansible Automation Platform playbook queried NetBox for all <code>dd</code>-tagged circuits
-         between GB-Bristol and US-Atlanta.
+         between US-Atlanta and AR-Buenos-Aires.
          Evaluated 1 candidate(s) and selected
-         <strong>IPLC-GB-AT-PRI</strong> via Global Telecom
-         (10000 Mbps — highest available capacity).</p>
+         <strong>IPLC-US-AR-SEC</strong> via Global Telecom
+         (5000 Mbps — highest available capacity).</p>
     </div>
 
     <div class="step push">
       <h3>Router configuration updated <span class="ts">T+8.3s</span></h3>
       <p>Ansible Automation Platform pushed failover routing to <strong>2</strong> router(s)
          via the <code>netbox.netbox</code> Ansible collection:</p>
-      <div class="cmd">gb-rtr-01 (GB-Bristol):
+      <div class="cmd">us-rtr-01 (US-Atlanta):
   conf t
   no ip route 0.0.0.0 0.0.0.0 172.16.0.1   ! remove primary default route
   ip route 0.0.0.0 0.0.0.0 172.16.1.1       ! activate backup route
   end</div>
-      <div class="cmd">us-rtr-01 (US-Atlanta):
+      <div class="cmd">ar-rtr-01 (AR-Buenos-Aires):
   conf t
   no ip route 0.0.0.0 0.0.0.0 172.16.0.2
   ip route 0.0.0.0 0.0.0.0 172.16.1.2
@@ -248,8 +252,8 @@
       <h3>NetBox Source of Truth updated <span class="ts">T+21.6s</span></h3>
       <p>
         Ansible Automation Platform wrote back to NetBox via the <code>netbox.netbox.netbox_circuit</code> module:
-        <strong>IPLC-GB-AT-SEC</strong> &rarr; Offline,
-        <strong>IPLC-GB-AT-PRI</strong> &rarr; Active.
+        <strong>IPLC-US-AR-PRI</strong> &rarr; Offline,
+        <strong>IPLC-US-AR-SEC</strong> &rarr; Active.
         Visual Explorer WAN map updated in real-time. Workflow Step 1 complete.
       </p>
     </div>
@@ -291,12 +295,12 @@
   </p>
   <ul class="router-list">
     <li>
-      <span class="name">IPLC-GB-AT-SEC</span>
-      <span class="site"><a href="https://redhat-leo.cloud.netboxapp.com/circuits/circuits/2/changelog/" class="audit-link" target="_blank">View changelog</a></span>
+      <span class="name">IPLC-US-AR-PRI</span>
+      <span class="site"><a href="https://redhat-leo.cloud.netboxapp.com/circuits/circuits/34/changelog/" class="audit-link" target="_blank">View changelog</a></span>
     </li>
     <li>
-      <span class="name">IPLC-GB-AT-PRI</span>
-      <span class="site"><a href="https://redhat-leo.cloud.netboxapp.com/circuits/circuits/1/changelog/" class="audit-link" target="_blank">View changelog</a></span>
+      <span class="name">IPLC-US-AR-SEC</span>
+      <span class="site"><a href="https://redhat-leo.cloud.netboxapp.com/circuits/circuits/35/changelog/" class="audit-link" target="_blank">View changelog</a></span>
     </li>
   </ul>
 </div>
@@ -305,15 +309,16 @@
 <div class="card">
   <h2>Recommended Next Steps</h2>
   <ul class="next-steps">
-    <li><strong>Contact Global Telecom</strong> to restore IPLC-GB-AT-SEC. Open a trouble ticket referencing this incident report.</li>
+    <li><strong>Contact Global Telecom</strong> to restore IPLC-US-AR-PRI. Open a trouble ticket referencing this incident report.</li>
+    <li><strong>Monitor capacity:</strong> currently operating at 50% of primary capacity (5000 Mbps vs 10000 Mbps). Consider traffic shaping if utilisation exceeds 5000 Mbps.</li>
     <li><strong>Provider concentration risk:</strong> both primary and backup circuits are via Global Telecom. Consider adding a circuit from a second provider for diversity.</li>
-    <li><strong>Once primary is restored</strong>, run the reset automation to return IPLC-GB-AT-SEC to active and IPLC-GB-AT-PRI to standby.</li>
+    <li><strong>Once primary is restored</strong>, run the reset automation to return IPLC-US-AR-PRI to active and IPLC-US-AR-SEC to standby.</li>
     <li><strong>Review the full changelog</strong> in NetBox for a complete audit trail of all automated changes.</li>
   </ul>
 </div>
 
 <div class="footer">
-  Generated by Ansible Automation Platform from NetBox Source of Truth &nbsp;|&nbsp; 2026-05-07T07:16:13Z &nbsp;|&nbsp;
+  Generated by Ansible Automation Platform from NetBox Source of Truth &nbsp;|&nbsp; 2026-05-07T07:24:16Z &nbsp;|&nbsp;
   <strong style="color: #00C2A8;">NetBox Labs</strong>
 </div>
 

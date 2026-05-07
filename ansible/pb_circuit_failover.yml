@@ -184,69 +184,51 @@
         backup_a_site: "{{ (backup_terms | selectattr('term_side', 'eq', 'A') | first).termination.display }}"
         backup_z_site: "{{ (backup_terms | selectattr('term_side', 'eq', 'Z') | first).termination.display }}"
 
-    # ── Derive gateways from NetBox (circuit → cable → interface → IP) ──
+    # ── Prepare termination data for per-router gateway derivation ──────
 
-    - name: Get A-side terminations for gateway derivation
+    - name: Check if circuits have cable wiring
       ansible.builtin.set_fact:
-        failed_a_term: "{{ primary_terms | selectattr('term_side', 'eq', 'A') | first }}"
-        backup_a_term: "{{ backup_terms | selectattr('term_side', 'eq', 'A') | first }}"
+        circuits_have_cables: >-
+          {{ (primary_terms | map(attribute='link_peers', default=[]) | select | list | length > 0)
+             and (backup_terms | map(attribute='link_peers', default=[]) | select | list | length > 0) }}
 
-    - name: Check if circuits are cabled to interfaces
+    - name: Query IPs for all cabled interfaces on failed circuit
       ansible.builtin.set_fact:
-        failed_has_cable: "{{ failed_a_term.link_peers | default([]) | length > 0 }}"
-        backup_has_cable: "{{ backup_a_term.link_peers | default([]) | length > 0 }}"
-
-    - name: Query IP on failed circuit interface
-      ansible.builtin.set_fact:
-        failed_intf_ips: >-
-          {{ query('netbox.netbox.nb_lookup', 'ip-addresses',
-                   api_endpoint=netbox_url,
-                   token=netbox_token,
-                   api_filter='interface_id=' ~ failed_a_term.link_peers[0].id,
-                   validate_certs=netbox_validate_certs,
-                   raw_data=true) }}
-      when: failed_has_cable | bool
-
-    - name: Query IP on backup circuit interface
-      ansible.builtin.set_fact:
-        backup_intf_ips: >-
-          {{ query('netbox.netbox.nb_lookup', 'ip-addresses',
-                   api_endpoint=netbox_url,
-                   token=netbox_token,
-                   api_filter='interface_id=' ~ backup_a_term.link_peers[0].id,
-                   validate_certs=netbox_validate_certs,
-                   raw_data=true) }}
-      when: backup_has_cable | bool
-
-    - name: Derive gateway IPs from /30 subnets
-      ansible.builtin.set_fact:
-        failed_gw: >-
-          {{ failed_intf_ips[0].address
-             | ansible.utils.ipaddr('network/prefix')
-             | ansible.utils.nthhost(1) }}
-        backup_gw: >-
-          {{ backup_intf_ips[0].address
-             | ansible.utils.ipaddr('network/prefix')
-             | ansible.utils.nthhost(1) }}
+        failed_term_ips: >-
+          {{ failed_term_ips | default({}) | combine({
+               item.link_peers[0].device.name:
+                 query('netbox.netbox.nb_lookup', 'ip-addresses',
+                       api_endpoint=netbox_url,
+                       token=netbox_token,
+                       api_filter='interface_id=' ~ item.link_peers[0].id,
+                       validate_certs=netbox_validate_certs,
+                       raw_data=true)
+             }) }}
+      loop: "{{ primary_terms | selectattr('link_peers', 'defined') | list }}"
+      loop_control:
+        label: "{{ item.link_peers[0].device.name | default('uncabled') }}"
       when:
-        - failed_intf_ips is defined
-        - backup_intf_ips is defined
-        - failed_intf_ips | length > 0
-        - backup_intf_ips | length > 0
+        - circuits_have_cables | bool
+        - item.link_peers | default([]) | length > 0
 
-    - name: Fall back to env var gateways
+    - name: Query IPs for all cabled interfaces on backup circuit
       ansible.builtin.set_fact:
-        failed_gw: "{{ lookup('env', 'ROUTER_PRIMARY_GW') | default('172.16.0.1', true) }}"
-        backup_gw: "{{ lookup('env', 'ROUTER_BACKUP_GW') | default('172.16.1.1', true) }}"
-      when: failed_gw is not defined or backup_gw is not defined
-
-    - name: Show derived gateways
-      ansible.builtin.debug:
-        msg: >-
-          Gateways: failed={{ failed_gw }}, backup={{ backup_gw }}
-          (source: {{ 'NetBox circuit→cable→interface→IP'
-          if (failed_has_cable | bool) else 'env vars (no cable wiring)' }})
-        verbosity: 0
+        backup_term_ips: >-
+          {{ backup_term_ips | default({}) | combine({
+               item.link_peers[0].device.name:
+                 query('netbox.netbox.nb_lookup', 'ip-addresses',
+                       api_endpoint=netbox_url,
+                       token=netbox_token,
+                       api_filter='interface_id=' ~ item.link_peers[0].id,
+                       validate_certs=netbox_validate_certs,
+                       raw_data=true)
+             }) }}
+      loop: "{{ backup_terms | selectattr('link_peers', 'defined') | list }}"
+      loop_control:
+        label: "{{ item.link_peers[0].device.name | default('uncabled') }}"
+      when:
+        - circuits_have_cables | bool
+        - item.link_peers | default([]) | length > 0
 
     # ── Query routers at both sites ───────────────────────────────────────────
 
@@ -288,8 +270,18 @@
         ansible_network_os: cisco.ios.ios
         ansible_connection: ansible.netcommon.network_cli
         ansible_network_cli_ssh_type: paramiko
-        failed_gw: "{{ failed_gw }}"
-        backup_gw: "{{ backup_gw }}"
+        failed_gw: >-
+          {{ (failed_term_ips[item.name][0].address
+              | ansible.utils.ipaddr('network/prefix')
+              | ansible.utils.nthhost(1))
+             if (failed_term_ips is defined and item.name in failed_term_ips)
+             else lookup('env', 'ROUTER_PRIMARY_GW') | default('172.16.0.1', true) }}
+        backup_gw: >-
+          {{ (backup_term_ips[item.name][0].address
+              | ansible.utils.ipaddr('network/prefix')
+              | ansible.utils.nthhost(1))
+             if (backup_term_ips is defined and item.name in backup_term_ips)
+             else lookup('env', 'ROUTER_BACKUP_GW') | default('172.16.1.1', true) }}
       loop: >-
         {{
           all_routers
@@ -304,9 +296,22 @@
       ansible.builtin.debug:
         msg: |
           [SIMULATED] {{ item.name }}:
-            no ip route 0.0.0.0 0.0.0.0 {{ failed_gw }}
-            ip route 0.0.0.0 0.0.0.0 {{ backup_gw }}
+            no ip route 0.0.0.0 0.0.0.0 {{ __sim_failed_gw }}
+            ip route 0.0.0.0 0.0.0.0 {{ __sim_backup_gw }}
         verbosity: 0
+      vars:
+        __sim_failed_gw: >-
+          {{ (failed_term_ips[item.name][0].address
+              | ansible.utils.ipaddr('network/prefix')
+              | ansible.utils.nthhost(1))
+             if (failed_term_ips is defined and item.name in failed_term_ips)
+             else lookup('env', 'ROUTER_PRIMARY_GW') | default('172.16.0.1', true) }}
+        __sim_backup_gw: >-
+          {{ (backup_term_ips[item.name][0].address
+              | ansible.utils.ipaddr('network/prefix')
+              | ansible.utils.nthhost(1))
+             if (backup_term_ips is defined and item.name in backup_term_ips)
+             else lookup('env', 'ROUTER_BACKUP_GW') | default('172.16.1.1', true) }}
       loop: >-
         {{
           all_routers

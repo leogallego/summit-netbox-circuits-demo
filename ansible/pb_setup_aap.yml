@@ -70,10 +70,10 @@
     workflow_name: "{{ aap_org_name }} Circuit Failover Workflow"
     report_server_cred_name: "{{ aap_org_name }} Report Server SSH"
     router_cred_name: "{{ aap_org_name }} Network Router"
-    router_device_name: "gb-rtr-01"
+    router_device_name: "us-rtr-01"
     router_device_type: "ISR4451"
     router_device_role: "router"
-    router_device_site: "gb-bristol"
+    router_device_site: "us-atlanta"
     router_mgmt_iface_name: "GigabitEthernet1"
     # Execution Environment
     ee_name: "{{ aap_org_name }} Execution Environment"

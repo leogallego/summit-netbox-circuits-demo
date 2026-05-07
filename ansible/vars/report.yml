@@ -1,5 +1,4 @@
 ---
-report_filename: "{{ lookup('env', 'REPORT_FILENAME') | default('failover_report_collection.html', true) }}"
 github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('', true) }}"
 github_repo: "{{ lookup('env', 'GITHUB_REPO') | default('leogallego/summit-netbox-circuits-demo', true) }}"
 github_report_dir: "{{ lookup('env', 'GITHUB_REPORT_DIR') | default('docs', true) }}"

@@ -27,6 +27,11 @@
     report_dir: "{{ playbook_dir }}/reports"
 
   tasks:
+    - name: Build timestamped report filename
+      ansible.builtin.set_fact:
+        report_filename: >-
+          failover_report_{{ failed_circuit }}_{{ ansible_date_time.iso8601_basic_short }}.html
+
     - name: Create report directory
       ansible.builtin.file:
         path: "{{ report_dir }}"
@@ -255,6 +260,81 @@
         msg: >-
           Report published to GitHub Pages:
           https://{{ github_repo | regex_replace('/', '.github.io/') }}/{{ report_filename }}
+        verbosity: 0
+
+    # ── Update index page ─────────────────────────────────────────────────────
+
+    - name: List existing reports in GitHub Pages directory
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ github_repo }}/contents/{{ github_report_dir }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ github_token }}"
+          Accept: "application/vnd.github.v3+json"
+        status_code:
+          - 200
+      register: github_dir_listing
+
+    - name: Build report list from directory
+      ansible.builtin.set_fact:
+        report_files: >-
+          {{ github_dir_listing.json
+             | selectattr('name', 'match', '^failover_report_.*\.html$')
+             | sort(attribute='name', reverse=true)
+             | list }}
+
+    - name: Generate index page
+      ansible.builtin.template:
+        src: templates/report_index.html.j2
+        dest: "{{ report_dir }}/index.html"
+        mode: "0644"
+
+    - name: Read generated index file
+      ansible.builtin.slurp:
+        src: "{{ report_dir }}/index.html"
+      register: index_content
+
+    - name: Check if index.html exists on GitHub
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ github_repo }}/contents/{{ github_report_dir }}/index.html"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ github_token }}"
+          Accept: "application/vnd.github.v3+json"
+        status_code:
+          - 200
+          - 404
+      register: github_existing_index
+
+    - name: Push index.html to GitHub Pages
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ github_repo }}/contents/{{ github_report_dir }}/index.html"
+        method: PUT
+        headers:
+          Authorization: "Bearer {{ github_token }}"
+          Accept: "application/vnd.github.v3+json"
+        body_format: json
+        body: >-
+          {{
+            {
+              'message': 'Update report index',
+              'content': index_content.content
+            }
+            | combine(
+                {'sha': github_existing_index.json.sha}
+                if github_existing_index.status == 200
+                else {}
+              )
+          }}
+        status_code:
+          - 200
+          - 201
+
+    - name: Report index updated
+      ansible.builtin.debug:
+        msg: >-
+          Index updated ({{ report_files | length }} reports):
+          https://{{ github_repo | regex_replace('/', '.github.io/') }}/
         verbosity: 0
 
 # ── Play 3: Register report server (if configured) ────────────────────────────

@@ -24,7 +24,6 @@ ansible-navigator:
         - REGISTRY_PASSWORD
         - AH_URL
         - AH_TOKEN
-        - REPORT_FILENAME
         - GITHUB_TOKEN
         - GITHUB_REPO
         - GITHUB_REPORT_DIR

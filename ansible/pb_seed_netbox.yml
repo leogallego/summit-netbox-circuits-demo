@@ -279,6 +279,7 @@
             name: "{{ item.interface }}"
           status: connected
         state: present
+      ignore_errors: true
       loop:
         - circuit: IPLC-GB-AT-PRI
           term_side: A

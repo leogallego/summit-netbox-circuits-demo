@@ -92,7 +92,7 @@
     report_filename: "failover_report_collection.html"
     # GitHub Pages
     github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('', true) }}"
-    github_repo: "{{ lookup('env', 'GITHUB_REPO') | default('leogallego/summit-netbox-circuits-demo', true) }}"
+    github_pages_repo: "{{ lookup('env', 'GITHUB_REPO') | default('leogallego/summit-netbox-circuits-demo', true) }}"
     github_report_dir: "{{ lookup('env', 'GITHUB_REPORT_DIR') | default('docs', true) }}"
     github_cred_name: "{{ aap_org_name }} GitHub"
     # NetBox resource names
@@ -210,7 +210,7 @@
         credential_type: "GitHub"
         inputs:
           GITHUB_TOKEN: "{{ github_token }}"
-          GITHUB_REPO: "{{ github_repo }}"
+          GITHUB_REPO: "{{ github_pages_repo }}"
           GITHUB_REPORT_DIR: "{{ github_report_dir }}"
         state: present
       when: github_token | length > 0
@@ -388,8 +388,9 @@
               organization:
                 name: "{{ aap_org_name }}"
               type: job_template
-            success_nodes:
-              - report
+            related:
+              success_nodes:
+                - identifier: report
           - identifier: report
             unified_job_template:
               name: "{{ jt_report_name }}"
@@ -496,7 +497,16 @@
 
     # ── EDA: Rulebook Activation ──────────────────────────────────────────────
 
-    - name: Create rulebook activation
+    - name: Disable rulebook activation before update
+      ansible.eda.rulebook_activation:
+        name: "{{ eda_activation_name }}"
+        organization_name: "{{ aap_org_name }}"
+        state: disabled
+      ignore_errors: true
+      tags:
+        - eda
+
+    - name: Create or update rulebook activation
       ansible.eda.rulebook_activation:
         name: "{{ eda_activation_name }}"
         organization_name: "{{ aap_org_name }}"
@@ -513,6 +523,14 @@
           Listens for NetBox circuit events and triggers
           AAP failover workflow
         state: present
+      tags:
+        - eda
+
+    - name: Enable rulebook activation
+      ansible.eda.rulebook_activation:
+        name: "{{ eda_activation_name }}"
+        organization_name: "{{ aap_org_name }}"
+        state: enabled
       tags:
         - eda
 

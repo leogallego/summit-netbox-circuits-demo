@@ -98,6 +98,24 @@ Run `./reset.sh` or launch the **Reset Demo** job template in AAP to restore all
 
 All demo circuits are tagged `dd` in NetBox. This tag scopes all queries — backup discovery, reset, and report generation only touch `dd`-tagged objects.
 
+### Failover / Failback Behavior
+
+The automation is **bidirectional** — setting *any* circuit offline triggers failover to the other one. This means failback is just another failover in the opposite direction.
+
+| Starting State | Action | EDA Triggers? | Result |
+|---|---|---|---|
+| PRI active, SEC offline | Set PRI offline | Yes | SEC activated, routes swapped |
+| PRI offline, SEC active | Set SEC offline | Yes | PRI activated, routes swapped |
+| Both active | Set PRI offline | Yes | SEC stays active, routes updated |
+| Both active | Set SEC offline | Yes | PRI stays active, routes updated |
+| Both offline | — | No | Deadlock — no backup available, playbook fails with assert |
+
+**How it works:** the failover playbook queries all `dd`-tagged circuits at both sites regardless of status. It builds a backup candidate list by excluding the failed circuit, then selects the best candidate by committed bandwidth. If the candidate is already active, only the route swap happens — no redundant NetBox update.
+
+**Gateway derivation:** each circuit termination is cabled to a router interface in NetBox, and each interface has an IP address on a /30 point-to-point subnet. The playbook follows the chain circuit → termination → cable → interface → IP, then derives the gateway as the first host in the /30. This makes route direction automatic — no hardcoded gateway mappings.
+
+**Demo scenario:** set PRI offline → automation activates SEC. To fail back, set SEC offline → automation reactivates PRI. Reset with `./reset.sh` to restore starting state.
+
 ---
 
 ## Setup

@@ -24,7 +24,6 @@
     - vars/report.yml
 
   vars:
-    failed_circuit: "IPLC-GB-AT-PRI"
     report_dir: "{{ playbook_dir }}/reports"
 
   tasks:

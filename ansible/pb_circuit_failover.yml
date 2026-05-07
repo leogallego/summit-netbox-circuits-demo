@@ -19,7 +19,7 @@
 # Usage (manual):
 #   ansible-playbook ansible/pb_circuit_failover.yml
 #   ansible-playbook ansible/pb_circuit_failover.yml \
-#     --extra-vars "failed_circuit=IPLC-GB-JP-PRI"
+#     --extra-vars "failed_circuit=IPLC-GB-AT-PRI"
 #
 # Usage (from AAP workflow):
 #   Pass the circuit CID in the extra_vars payload as 'failed_circuit'.
@@ -33,7 +33,6 @@
     - vars/netbox_creds.yml
 
   vars:
-    failed_circuit: "IPLC-GB-AT-PRI"
     report_dir: "{{ playbook_dir }}/reports"
 
   tasks:
@@ -185,6 +184,52 @@
         backup_a_site: "{{ (backup_terms | selectattr('term_side', 'eq', 'A') | first).termination.display }}"
         backup_z_site: "{{ (backup_terms | selectattr('term_side', 'eq', 'Z') | first).termination.display }}"
 
+    # ── Prepare termination data for per-router gateway derivation ──────
+
+    - name: Check if circuits have cable wiring
+      ansible.builtin.set_fact:
+        circuits_have_cables: >-
+          {{ (primary_terms | map(attribute='link_peers', default=[]) | select | list | length > 0)
+             and (backup_terms | map(attribute='link_peers', default=[]) | select | list | length > 0) }}
+
+    - name: Query IPs for all cabled interfaces on failed circuit
+      ansible.builtin.set_fact:
+        failed_term_ips: >-
+          {{ failed_term_ips | default({}) | combine({
+               item.link_peers[0].device.name:
+                 query('netbox.netbox.nb_lookup', 'ip-addresses',
+                       api_endpoint=netbox_url,
+                       token=netbox_token,
+                       api_filter='interface_id=' ~ item.link_peers[0].id,
+                       validate_certs=netbox_validate_certs,
+                       raw_data=true)
+             }) }}
+      loop: "{{ primary_terms | selectattr('link_peers', 'defined') | list }}"
+      loop_control:
+        label: "{{ item.link_peers[0].device.name | default('uncabled') }}"
+      when:
+        - circuits_have_cables | bool
+        - item.link_peers | default([]) | length > 0
+
+    - name: Query IPs for all cabled interfaces on backup circuit
+      ansible.builtin.set_fact:
+        backup_term_ips: >-
+          {{ backup_term_ips | default({}) | combine({
+               item.link_peers[0].device.name:
+                 query('netbox.netbox.nb_lookup', 'ip-addresses',
+                       api_endpoint=netbox_url,
+                       token=netbox_token,
+                       api_filter='interface_id=' ~ item.link_peers[0].id,
+                       validate_certs=netbox_validate_certs,
+                       raw_data=true)
+             }) }}
+      loop: "{{ backup_terms | selectattr('link_peers', 'defined') | list }}"
+      loop_control:
+        label: "{{ item.link_peers[0].device.name | default('uncabled') }}"
+      when:
+        - circuits_have_cables | bool
+        - item.link_peers | default([]) | length > 0
+
     # ── Query routers at both sites ───────────────────────────────────────────
 
     - name: Query routers at A-side site
@@ -225,6 +270,18 @@
         ansible_network_os: cisco.ios.ios
         ansible_connection: ansible.netcommon.network_cli
         ansible_network_cli_ssh_type: paramiko
+        failed_gw: >-
+          {{ (failed_term_ips[item.name][0].address
+              | ansible.utils.ipaddr('network/prefix')
+              | ansible.utils.nthhost(1))
+             if (failed_term_ips is defined and item.name in failed_term_ips)
+             else lookup('env', 'ROUTER_PRIMARY_GW') | default('172.16.0.1', true) }}
+        backup_gw: >-
+          {{ (backup_term_ips[item.name][0].address
+              | ansible.utils.ipaddr('network/prefix')
+              | ansible.utils.nthhost(1))
+             if (backup_term_ips is defined and item.name in backup_term_ips)
+             else lookup('env', 'ROUTER_BACKUP_GW') | default('172.16.1.1', true) }}
       loop: >-
         {{
           all_routers
@@ -239,12 +296,22 @@
       ansible.builtin.debug:
         msg: |
           [SIMULATED] {{ item.name }}:
-            no ip route 0.0.0.0 0.0.0.0 {{ router_primary_gw }}
-            ip route 0.0.0.0 0.0.0.0 {{ router_backup_gw }}
+            no ip route 0.0.0.0 0.0.0.0 {{ __sim_failed_gw }}
+            ip route 0.0.0.0 0.0.0.0 {{ __sim_backup_gw }}
         verbosity: 0
       vars:
-        router_primary_gw: "{{ lookup('env', 'ROUTER_PRIMARY_GW') | default('172.16.0.1', true) }}"
-        router_backup_gw: "{{ lookup('env', 'ROUTER_BACKUP_GW') | default('172.16.1.1', true) }}"
+        __sim_failed_gw: >-
+          {{ (failed_term_ips[item.name][0].address
+              | ansible.utils.ipaddr('network/prefix')
+              | ansible.utils.nthhost(1))
+             if (failed_term_ips is defined and item.name in failed_term_ips)
+             else lookup('env', 'ROUTER_PRIMARY_GW') | default('172.16.0.1', true) }}
+        __sim_backup_gw: >-
+          {{ (backup_term_ips[item.name][0].address
+              | ansible.utils.ipaddr('network/prefix')
+              | ansible.utils.nthhost(1))
+             if (backup_term_ips is defined and item.name in backup_term_ips)
+             else lookup('env', 'ROUTER_BACKUP_GW') | default('172.16.1.1', true) }}
       loop: >-
         {{
           all_routers
@@ -337,26 +404,21 @@
   gather_facts: false
   ignore_unreachable: true
 
-  vars:
-    failed_circuit: "IPLC-GB-AT-PRI"
-    router_primary_gw: "{{ lookup('env', 'ROUTER_PRIMARY_GW') | default('172.16.0.1', true) }}"
-    router_backup_gw: "{{ lookup('env', 'ROUTER_BACKUP_GW') | default('172.16.1.1', true) }}"
-
   tasks:
     - name: Push failover routing config
       block:
-        - name: Remove primary route and add backup route
+        - name: Remove failed route and add backup route
           cisco.ios.ios_config:
             lines:
-              - "no ip route 0.0.0.0 0.0.0.0 {{ router_primary_gw }}"
-              - "ip route 0.0.0.0 0.0.0.0 {{ router_backup_gw }}"
+              - "no ip route 0.0.0.0 0.0.0.0 {{ failed_gw }}"
+              - "ip route 0.0.0.0 0.0.0.0 {{ backup_gw }}"
             save_when: changed
 
         - name: Router failover config applied
           ansible.builtin.debug:
             msg: >-
-              {{ inventory_hostname }}: primary route ({{ router_primary_gw }})
-              removed, backup route ({{ router_backup_gw }}) added
+              {{ inventory_hostname }}: failed route ({{ failed_gw }})
+              removed, backup route ({{ backup_gw }}) added
             verbosity: 0
 
       rescue:

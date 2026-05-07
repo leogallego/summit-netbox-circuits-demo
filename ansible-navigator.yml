@@ -6,15 +6,39 @@ ansible-navigator:
     image: quay.io/acme_corp/netbox-summit-2026-ee:v3.22
     pull:
       policy: never
-    container-options:
-      - "--env-file"
-      - ".env"
     environment-variables:
       pass:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
         - AWS_SESSION_TOKEN
         - AWS_DEFAULT_REGION
+        - NETBOX_URL
+        - NETBOX_TOKEN
+        - AAP_URL
+        - AAP_USERNAME
+        - AAP_PASSWORD
+        - AAP_TOKEN
+        - EDA_STREAM_TOKEN
+        - REGISTRY_HOST
+        - REGISTRY_USERNAME
+        - REGISTRY_PASSWORD
+        - AH_URL
+        - AH_TOKEN
+        - REPORT_FILENAME
+        - GITHUB_TOKEN
+        - GITHUB_REPO
+        - GITHUB_REPORT_DIR
+        - REPORT_SERVER_HOST
+        - REPORT_SERVER_PORT
+        - REPORT_URL
+        - PRIVATE_KEY_PATH
+        - IOSXE_VERSION
+        - ROUTER_IP
+        - ROUTER_PASSWORD
+        - ROUTER_USERNAME
+        - ROUTER_PRIMARY_GW
+        - ROUTER_BACKUP_GW
+        - GITHUB_PAGES_REPO
 
   mode: stdout
 

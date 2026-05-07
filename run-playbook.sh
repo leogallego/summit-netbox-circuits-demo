@@ -17,6 +17,18 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
+# Export .env vars so ansible-navigator can pass them into the EE container.
+# Command-line overrides (e.g. NETBOX_URL=http://... ./run-playbook.sh) take
+# precedence because we only set vars that aren't already in the environment.
+while IFS='=' read -r key value; do
+  [[ -z "$key" || "$key" == \#* ]] && continue
+  key=$(echo "$key" | xargs)
+  value=$(echo "$value" | xargs)
+  if [ -z "${!key}" ]; then
+    export "$key=$value"
+  fi
+done < .env
+
 # Export AWS session credentials if the CLI is configured (SSO, profiles, etc.).
 # Silently skipped when AWS CLI is not available or not authenticated.
 eval "$(aws configure export-credentials --format env 2>/dev/null)" 2>/dev/null || true

@@ -2,80 +2,194 @@
 # Demo circuit and infrastructure definitions.
 # Single source of truth for CIDs, sites, routers, and interface wiring.
 # Used by pb_seed_netbox.yml, pb_reset_demo.yml, and referenced in docs.
+#
+# Toggle site blocks with -e seed_bristol=false or -e seed_buenos_aires=false.
+# US-Atlanta is always seeded (hub site).
 
-# Sites
-a_side_site_name: "GB-Bristol"
-z_side_site_name: "US-Atlanta"
+# ── Site toggles ──────────────────────────────────────────────────────────
+seed_bristol: true
+seed_buenos_aires: true
 
-# Provider
+# ── Provider & device infrastructure ──────────────────────────────────────
 provider_name: "Global Telecom"
-
-# Device infrastructure
 manufacturer_name: "Cisco"
 device_type_model: "ISR4451"
 device_role_name: "router"
-
-# Routers
-a_side_router: "gb-rtr-01"
-z_side_router: "us-rtr-01"
-
-# Circuit names
-primary_circuit: "IPLC-GB-AT-PRI"
-backup_circuit: "IPLC-GB-AT-SEC"
 circuit_type_name: "IPLC"
-
-# Demo tag
 demo_tag: "dd"
 
-# Interfaces
+# ── Sites ─────────────────────────────────────────────────────────────────
+gb_site_name: "GB-Bristol"
+us_site_name: "US-Atlanta"
+ar_site_name: "AR-Buenos-Aires"
+
+# ── Routers ───────────────────────────────────────────────────────────────
+gb_router: "gb-rtr-01"
+us_router: "us-rtr-01"
+ar_router: "ar-rtr-01"
+
+# ── Interface names ───────────────────────────────────────────────────────
 pri_interface: "GigabitEthernet2"
 sec_interface: "GigabitEthernet3"
+ter_interface: "GigabitEthernet4"
+qua_interface: "GigabitEthernet5"
 
-# Point-to-point IPs (/30 subnets)
-a_side_pri_ip: "172.16.0.2/30"
-a_side_sec_ip: "172.16.1.2/30"
-z_side_pri_ip: "172.16.0.6/30"
-z_side_sec_ip: "172.16.1.6/30"
+# ── Circuit names ─────────────────────────────────────────────────────────
+# GB ↔ US
+gb_us_pri_circuit: "IPLC-GB-AT-PRI"
+gb_us_sec_circuit: "IPLC-GB-AT-SEC"
+# US ↔ AR
+us_ar_pri_circuit: "IPLC-US-AR-PRI"
+us_ar_sec_circuit: "IPLC-US-AR-SEC"
+# BA ↔ BR (standalone — no backup)
+ba_br_circuit: "IPLC-AR-GB-01"
 
-# Circuits
-demo_circuits:
-  - cid: "{{ primary_circuit }}"
-    status: "Active"
-    commit_rate: 10000000
-    port_speed: 10000
-  - cid: "{{ backup_circuit }}"
-    status: "Offline"
-    commit_rate: 5000000
-    port_speed: 5000
+# Aliases for the primary demo failover path (GB ↔ US)
+primary_circuit: "{{ gb_us_pri_circuit }}"
+backup_circuit: "{{ gb_us_sec_circuit }}"
 
-# Interfaces (one per circuit per router)
-demo_interfaces:
-  - { device: "{{ a_side_router }}", name: "{{ pri_interface }}", description: "{{ primary_circuit }} uplink" }
-  - { device: "{{ a_side_router }}", name: "{{ sec_interface }}", description: "{{ backup_circuit }} uplink" }
-  - { device: "{{ z_side_router }}", name: "{{ pri_interface }}", description: "{{ primary_circuit }} uplink" }
-  - { device: "{{ z_side_router }}", name: "{{ sec_interface }}", description: "{{ backup_circuit }} uplink" }
+# ── Point-to-point IPs (/30 subnets) ─────────────────────────────────────
+# GB ↔ US
+gb_pri_ip: "172.16.0.2/30"
+gb_sec_ip: "172.16.1.2/30"
+us_gb_pri_ip: "172.16.0.6/30"
+us_gb_sec_ip: "172.16.1.6/30"
+# US ↔ AR
+us_ar_pri_ip: "172.16.2.2/30"
+us_ar_sec_ip: "172.16.3.2/30"
+ar_us_pri_ip: "172.16.2.6/30"
+ar_us_sec_ip: "172.16.3.6/30"
+# BA ↔ BR
+ar_gb_ip: "172.16.4.2/30"
+gb_ar_ip: "172.16.4.6/30"
 
-# IP addresses (/30 point-to-point links)
-demo_ips:
-  - { address: "{{ a_side_pri_ip }}", device: "{{ a_side_router }}", interface: "{{ pri_interface }}", description: "{{ primary_circuit }} link" }
-  - { address: "{{ a_side_sec_ip }}", device: "{{ a_side_router }}", interface: "{{ sec_interface }}", description: "{{ backup_circuit }} link" }
-  - { address: "{{ z_side_pri_ip }}", device: "{{ z_side_router }}", interface: "{{ pri_interface }}", description: "{{ primary_circuit }} link" }
-  - { address: "{{ z_side_sec_ip }}", device: "{{ z_side_router }}", interface: "{{ sec_interface }}", description: "{{ backup_circuit }} link" }
+# ══════════════════════════════════════════════════════════════════════════
+# Per-path data blocks (assembled into flat lists below)
+# ══════════════════════════════════════════════════════════════════════════
 
-# Circuit terminations (A-side and Z-side per circuit)
-demo_terminations:
-  - { circuit: "{{ primary_circuit }}", side: A, site: "{{ a_side_site_name }}", port_speed: 10000 }
-  - { circuit: "{{ primary_circuit }}", side: Z, site: "{{ z_side_site_name }}", port_speed: 10000 }
-  - { circuit: "{{ backup_circuit }}", side: A, site: "{{ a_side_site_name }}", port_speed: 5000 }
-  - { circuit: "{{ backup_circuit }}", side: Z, site: "{{ z_side_site_name }}", port_speed: 5000 }
+# ── GB ↔ US path ──────────────────────────────────────────────────────────
+gb_us_circuits:
+  - { cid: "{{ gb_us_pri_circuit }}", status: "Active", commit_rate: 10000000, port_speed: 10000 }
+  - { cid: "{{ gb_us_sec_circuit }}", status: "Offline", commit_rate: 5000000, port_speed: 5000 }
 
-# Cables (circuit termination ↔ router interface)
-demo_cables:
-  - { circuit: "{{ primary_circuit }}", term_side: A, device: "{{ a_side_router }}", interface: "{{ pri_interface }}" }
-  - { circuit: "{{ primary_circuit }}", term_side: Z, device: "{{ z_side_router }}", interface: "{{ pri_interface }}" }
-  - { circuit: "{{ backup_circuit }}", term_side: A, device: "{{ a_side_router }}", interface: "{{ sec_interface }}" }
-  - { circuit: "{{ backup_circuit }}", term_side: Z, device: "{{ z_side_router }}", interface: "{{ sec_interface }}" }
+gb_us_interfaces:
+  - { device: "{{ gb_router }}", name: "{{ pri_interface }}", description: "{{ gb_us_pri_circuit }} uplink" }
+  - { device: "{{ gb_router }}", name: "{{ sec_interface }}", description: "{{ gb_us_sec_circuit }} uplink" }
+  - { device: "{{ us_router }}", name: "{{ pri_interface }}", description: "{{ gb_us_pri_circuit }} uplink" }
+  - { device: "{{ us_router }}", name: "{{ sec_interface }}", description: "{{ gb_us_sec_circuit }} uplink" }
 
-# Reset: circuits that should start offline
-offline_circuits:
-  - "{{ backup_circuit }}"
+gb_us_ips:
+  - { address: "{{ gb_pri_ip }}", device: "{{ gb_router }}", interface: "{{ pri_interface }}", description: "{{ gb_us_pri_circuit }} link" }
+  - { address: "{{ gb_sec_ip }}", device: "{{ gb_router }}", interface: "{{ sec_interface }}", description: "{{ gb_us_sec_circuit }} link" }
+  - { address: "{{ us_gb_pri_ip }}", device: "{{ us_router }}", interface: "{{ pri_interface }}", description: "{{ gb_us_pri_circuit }} link" }
+  - { address: "{{ us_gb_sec_ip }}", device: "{{ us_router }}", interface: "{{ sec_interface }}", description: "{{ gb_us_sec_circuit }} link" }
+
+gb_us_terminations:
+  - { circuit: "{{ gb_us_pri_circuit }}", side: A, site: "{{ gb_site_name }}", port_speed: 10000 }
+  - { circuit: "{{ gb_us_pri_circuit }}", side: Z, site: "{{ us_site_name }}", port_speed: 10000 }
+  - { circuit: "{{ gb_us_sec_circuit }}", side: A, site: "{{ gb_site_name }}", port_speed: 5000 }
+  - { circuit: "{{ gb_us_sec_circuit }}", side: Z, site: "{{ us_site_name }}", port_speed: 5000 }
+
+gb_us_cables:
+  - { circuit: "{{ gb_us_pri_circuit }}", term_side: A, device: "{{ gb_router }}", interface: "{{ pri_interface }}" }
+  - { circuit: "{{ gb_us_pri_circuit }}", term_side: Z, device: "{{ us_router }}", interface: "{{ pri_interface }}" }
+  - { circuit: "{{ gb_us_sec_circuit }}", term_side: A, device: "{{ gb_router }}", interface: "{{ sec_interface }}" }
+  - { circuit: "{{ gb_us_sec_circuit }}", term_side: Z, device: "{{ us_router }}", interface: "{{ sec_interface }}" }
+
+gb_us_offline:
+  - "{{ gb_us_sec_circuit }}"
+
+# ── US ↔ AR path ──────────────────────────────────────────────────────────
+us_ar_circuits:
+  - { cid: "{{ us_ar_pri_circuit }}", status: "Active", commit_rate: 10000000, port_speed: 10000 }
+  - { cid: "{{ us_ar_sec_circuit }}", status: "Offline", commit_rate: 5000000, port_speed: 5000 }
+
+us_ar_interfaces:
+  - { device: "{{ us_router }}", name: "{{ ter_interface }}", description: "{{ us_ar_pri_circuit }} uplink" }
+  - { device: "{{ us_router }}", name: "{{ qua_interface }}", description: "{{ us_ar_sec_circuit }} uplink" }
+  - { device: "{{ ar_router }}", name: "{{ pri_interface }}", description: "{{ us_ar_pri_circuit }} uplink" }
+  - { device: "{{ ar_router }}", name: "{{ sec_interface }}", description: "{{ us_ar_sec_circuit }} uplink" }
+
+us_ar_ips:
+  - { address: "{{ us_ar_pri_ip }}", device: "{{ us_router }}", interface: "{{ ter_interface }}", description: "{{ us_ar_pri_circuit }} link" }
+  - { address: "{{ us_ar_sec_ip }}", device: "{{ us_router }}", interface: "{{ qua_interface }}", description: "{{ us_ar_sec_circuit }} link" }
+  - { address: "{{ ar_us_pri_ip }}", device: "{{ ar_router }}", interface: "{{ pri_interface }}", description: "{{ us_ar_pri_circuit }} link" }
+  - { address: "{{ ar_us_sec_ip }}", device: "{{ ar_router }}", interface: "{{ sec_interface }}", description: "{{ us_ar_sec_circuit }} link" }
+
+us_ar_terminations:
+  - { circuit: "{{ us_ar_pri_circuit }}", side: A, site: "{{ us_site_name }}", port_speed: 10000 }
+  - { circuit: "{{ us_ar_pri_circuit }}", side: Z, site: "{{ ar_site_name }}", port_speed: 10000 }
+  - { circuit: "{{ us_ar_sec_circuit }}", side: A, site: "{{ us_site_name }}", port_speed: 5000 }
+  - { circuit: "{{ us_ar_sec_circuit }}", side: Z, site: "{{ ar_site_name }}", port_speed: 5000 }
+
+us_ar_cables:
+  - { circuit: "{{ us_ar_pri_circuit }}", term_side: A, device: "{{ us_router }}", interface: "{{ ter_interface }}" }
+  - { circuit: "{{ us_ar_pri_circuit }}", term_side: Z, device: "{{ ar_router }}", interface: "{{ pri_interface }}" }
+  - { circuit: "{{ us_ar_sec_circuit }}", term_side: A, device: "{{ us_router }}", interface: "{{ qua_interface }}" }
+  - { circuit: "{{ us_ar_sec_circuit }}", term_side: Z, device: "{{ ar_router }}", interface: "{{ sec_interface }}" }
+
+us_ar_offline:
+  - "{{ us_ar_sec_circuit }}"
+
+# ── BA ↔ BR path (standalone — no backup) ─────────────────────────────────
+ba_br_circuits:
+  - { cid: "{{ ba_br_circuit }}", status: "Active", commit_rate: 2000000, port_speed: 2000 }
+
+ba_br_interfaces:
+  - { device: "{{ ar_router }}", name: "{{ ter_interface }}", description: "{{ ba_br_circuit }} uplink" }
+  - { device: "{{ gb_router }}", name: "{{ ter_interface }}", description: "{{ ba_br_circuit }} uplink" }
+
+ba_br_ips:
+  - { address: "{{ ar_gb_ip }}", device: "{{ ar_router }}", interface: "{{ ter_interface }}", description: "{{ ba_br_circuit }} link" }
+  - { address: "{{ gb_ar_ip }}", device: "{{ gb_router }}", interface: "{{ ter_interface }}", description: "{{ ba_br_circuit }} link" }
+
+ba_br_terminations:
+  - { circuit: "{{ ba_br_circuit }}", side: A, site: "{{ ar_site_name }}", port_speed: 2000 }
+  - { circuit: "{{ ba_br_circuit }}", side: Z, site: "{{ gb_site_name }}", port_speed: 2000 }
+
+ba_br_cables:
+  - { circuit: "{{ ba_br_circuit }}", term_side: A, device: "{{ ar_router }}", interface: "{{ ter_interface }}" }
+  - { circuit: "{{ ba_br_circuit }}", term_side: Z, device: "{{ gb_router }}", interface: "{{ ter_interface }}" }
+
+# ══════════════════════════════════════════════════════════════════════════
+# Assembled flat lists (consumed by seed playbook loops)
+# ══════════════════════════════════════════════════════════════════════════
+
+demo_sites: >-
+  {{ [us_site_name]
+     + ([gb_site_name] if seed_bristol | bool else [])
+     + ([ar_site_name] if seed_buenos_aires | bool else []) }}
+
+demo_routers: >-
+  {{ [{'name': us_router, 'site': us_site_name}]
+     + ([{'name': gb_router, 'site': gb_site_name}] if seed_bristol | bool else [])
+     + ([{'name': ar_router, 'site': ar_site_name}] if seed_buenos_aires | bool else []) }}
+
+demo_circuits: >-
+  {{ (gb_us_circuits if seed_bristol | bool else [])
+     + (us_ar_circuits if seed_buenos_aires | bool else [])
+     + (ba_br_circuits if (seed_bristol | bool and seed_buenos_aires | bool) else []) }}
+
+demo_interfaces: >-
+  {{ (gb_us_interfaces if seed_bristol | bool else [])
+     + (us_ar_interfaces if seed_buenos_aires | bool else [])
+     + (ba_br_interfaces if (seed_bristol | bool and seed_buenos_aires | bool) else []) }}
+
+demo_ips: >-
+  {{ (gb_us_ips if seed_bristol | bool else [])
+     + (us_ar_ips if seed_buenos_aires | bool else [])
+     + (ba_br_ips if (seed_bristol | bool and seed_buenos_aires | bool) else []) }}
+
+demo_terminations: >-
+  {{ (gb_us_terminations if seed_bristol | bool else [])
+     + (us_ar_terminations if seed_buenos_aires | bool else [])
+     + (ba_br_terminations if (seed_bristol | bool and seed_buenos_aires | bool) else []) }}
+
+demo_cables: >-
+  {{ (gb_us_cables if seed_bristol | bool else [])
+     + (us_ar_cables if seed_buenos_aires | bool else [])
+     + (ba_br_cables if (seed_bristol | bool and seed_buenos_aires | bool) else []) }}
+
+offline_circuits: >-
+  {{ (gb_us_offline if seed_bristol | bool else [])
+     + (us_ar_offline if seed_buenos_aires | bool else []) }}

@@ -41,9 +41,7 @@
           name: "{{ item }}"
           status: Active
         state: present
-      loop:
-        - "{{ a_side_site_name }}"
-        - "{{ z_side_site_name }}"
+      loop: "{{ demo_sites }}"
 
     # ── Provider ──────────────────────────────────────────────────────────────
 
@@ -114,9 +112,7 @@
           tags:
             - "{{ demo_tag }}"
         state: present
-      loop:
-        - { name: "{{ a_side_router }}", site: "{{ a_side_site_name }}" }
-        - { name: "{{ z_side_router }}", site: "{{ z_side_site_name }}" }
+      loop: "{{ demo_routers }}"
       loop_control:
         label: "{{ item.name }}"
 
@@ -244,12 +240,12 @@
       ansible.builtin.debug:
         msg: |
           NetBox seeded with demo data:
-            Sites:      {{ a_side_site_name }}, {{ z_side_site_name }}
+            Sites:      {{ demo_sites | join(', ') }}
             Provider:   {{ provider_name }}
-            Circuits:   {{ primary_circuit }} (active), {{ backup_circuit }} (offline)
-            Routers:    {{ a_side_router }}, {{ z_side_router }}
-            Interfaces: {{ pri_interface }} (PRI), {{ sec_interface }} (SEC) per router
-            IPs:        /30 point-to-point links on each interface
-            Cables:     circuit terminations ↔ router interfaces
+            Routers:    {{ demo_routers | map(attribute='name') | join(', ') }}
+            Circuits:   {{ demo_circuits | map(attribute='cid') | join(', ') }}
+            Interfaces: {{ demo_interfaces | length }}
+            IPs:        {{ demo_ips | length }} (/30 point-to-point links)
+            Cables:     {{ demo_cables | length }}
             Tag:        {{ demo_tag }}
         verbosity: 0

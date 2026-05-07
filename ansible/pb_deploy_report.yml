@@ -159,6 +159,63 @@
       ansible.builtin.set_fact:
         all_routers: "{{ a_side_routers + z_side_routers }}"
 
+    # ── Derive per-router gateways for report ────────────────────────────────
+
+    - name: Query IPs for failed circuit interfaces
+      ansible.builtin.set_fact:
+        failed_term_ips: >-
+          {{ failed_term_ips | default({}) | combine({
+               item.link_peers[0].device.name:
+                 query('netbox.netbox.nb_lookup', 'ip-addresses',
+                       api_endpoint=netbox_url,
+                       token=netbox_token,
+                       api_filter='interface_id=' ~ item.link_peers[0].id,
+                       validate_certs=netbox_validate_certs,
+                       raw_data=true)
+             }) }}
+      loop: "{{ primary_terms | selectattr('link_peers', 'defined') | list }}"
+      loop_control:
+        label: "{{ item.link_peers[0].device.name | default('uncabled') }}"
+      when: item.link_peers | default([]) | length > 0
+
+    - name: Query IPs for backup circuit interfaces
+      ansible.builtin.set_fact:
+        backup_term_ips: >-
+          {{ backup_term_ips | default({}) | combine({
+               item.link_peers[0].device.name:
+                 query('netbox.netbox.nb_lookup', 'ip-addresses',
+                       api_endpoint=netbox_url,
+                       token=netbox_token,
+                       api_filter='interface_id=' ~ item.link_peers[0].id,
+                       validate_certs=netbox_validate_certs,
+                       raw_data=true)
+             }) }}
+      loop: "{{ backup_terms | selectattr('link_peers', 'defined') | list }}"
+      loop_control:
+        label: "{{ item.link_peers[0].device.name | default('uncabled') }}"
+      when: item.link_peers | default([]) | length > 0
+
+    - name: Build per-router gateway lookup
+      ansible.builtin.set_fact:
+        router_gateways: >-
+          {{ router_gateways | default({}) | combine({
+               item.name: {
+                 'failed_gw': (failed_term_ips[item.name][0].address
+                               | ansible.utils.ipaddr('network/prefix')
+                               | ansible.utils.nthhost(1))
+                               if (failed_term_ips is defined and item.name in failed_term_ips)
+                               else 'N/A',
+                 'backup_gw': (backup_term_ips[item.name][0].address
+                               | ansible.utils.ipaddr('network/prefix')
+                               | ansible.utils.nthhost(1))
+                               if (backup_term_ips is defined and item.name in backup_term_ips)
+                               else 'N/A'
+               }
+             }) }}
+      loop: "{{ all_routers }}"
+      loop_control:
+        label: "{{ item.name }}"
+
     # ── Generate HTML report ──────────────────────────────────────────────────
 
     - name: Generate HTML failover report
@@ -175,6 +232,7 @@
         z_site: "{{ z_side_site }}"
         candidates: "{{ backup_candidates }}"
         netbox_base_url: "{{ netbox_url }}"
+        gateways: "{{ router_gateways | default({}) }}"
 
     - name: Report generated
       ansible.builtin.debug:

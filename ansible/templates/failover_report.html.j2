@@ -258,19 +258,15 @@
     <div class="step push">
       <h3>Router configuration updated <span class="ts">T+8.3s</span></h3>
       <p>Ansible Automation Platform pushed failover routing to <strong>{{ routers | length }}</strong> router(s)
-         via the <code>netbox.netbox</code> Ansible collection:</p>
-      <div class="cmd">{{ routers[0].name }} ({{ routers[0].site.name }}):
+         via <code>cisco.ios.ios_config</code>:</p>
+{% for r in routers %}
+{% set gw = gateways.get(r.name, {}) %}
+      <div class="cmd">{{ r.name }} ({{ r.site.name }}):
   conf t
-  no ip route 0.0.0.0 0.0.0.0 172.16.0.1   ! remove primary default route
-  ip route 0.0.0.0 0.0.0.0 172.16.1.1       ! activate backup route
+  no ip route 0.0.0.0 0.0.0.0 {{ gw.get('failed_gw', 'N/A') }}   ! remove failed route
+  ip route 0.0.0.0 0.0.0.0 {{ gw.get('backup_gw', 'N/A') }}       ! activate backup route
   end</div>
-{% if routers | length > 1 %}
-      <div class="cmd">{{ routers[1].name }} ({{ routers[1].site.name }}):
-  conf t
-  no ip route 0.0.0.0 0.0.0.0 172.16.0.2
-  ip route 0.0.0.0 0.0.0.0 172.16.1.2
-  end</div>
-{% endif %}
+{% endfor %}
     </div>
 
     <div class="step update">

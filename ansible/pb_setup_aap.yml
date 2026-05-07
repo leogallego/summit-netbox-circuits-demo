@@ -88,8 +88,6 @@
     eda_stream_cred_name: "{{ aap_org_name }} EDA Webhook Token"
     eda_event_stream_name: "{{ aap_org_name }} EDA Circuit Events"
     eda_activation_name: "{{ aap_org_name }} EDA Circuit Failover"
-    # Report
-    report_filename: "failover_report_collection.html"
     # GitHub Pages
     github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('', true) }}"
     github_pages_repo: "{{ lookup('env', 'GITHUB_REPO') | default('leogallego/summit-netbox-circuits-demo', true) }}"
@@ -702,8 +700,6 @@
             variables:
               ansible_port: "{{ report_server_port }}"
               ansible_user: "ec2-user"
-              report_filename: "{{ report_filename }}"
-              report_url: "{{ report_url | default('https://' + report_server_host + '/' + report_filename, true) }}"
             state: present
 
         - name: Create report_servers group and add host

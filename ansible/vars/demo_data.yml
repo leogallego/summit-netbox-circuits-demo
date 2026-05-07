@@ -1,0 +1,81 @@
+---
+# Demo circuit and infrastructure definitions.
+# Single source of truth for CIDs, sites, routers, and interface wiring.
+# Used by pb_seed_netbox.yml, pb_reset_demo.yml, and referenced in docs.
+
+# Sites
+a_side_site_name: "GB-Bristol"
+z_side_site_name: "US-Atlanta"
+
+# Provider
+provider_name: "Global Telecom"
+
+# Device infrastructure
+manufacturer_name: "Cisco"
+device_type_model: "ISR4451"
+device_role_name: "router"
+
+# Routers
+a_side_router: "gb-rtr-01"
+z_side_router: "us-rtr-01"
+
+# Circuit names
+primary_circuit: "IPLC-GB-AT-PRI"
+backup_circuit: "IPLC-GB-AT-SEC"
+circuit_type_name: "IPLC"
+
+# Demo tag
+demo_tag: "dd"
+
+# Interfaces
+pri_interface: "GigabitEthernet2"
+sec_interface: "GigabitEthernet3"
+
+# Point-to-point IPs (/30 subnets)
+a_side_pri_ip: "172.16.0.2/30"
+a_side_sec_ip: "172.16.1.2/30"
+z_side_pri_ip: "172.16.0.6/30"
+z_side_sec_ip: "172.16.1.6/30"
+
+# Circuits
+demo_circuits:
+  - cid: "{{ primary_circuit }}"
+    status: "Active"
+    commit_rate: 10000000
+    port_speed: 10000
+  - cid: "{{ backup_circuit }}"
+    status: "Offline"
+    commit_rate: 5000000
+    port_speed: 5000
+
+# Interfaces (one per circuit per router)
+demo_interfaces:
+  - { device: "{{ a_side_router }}", name: "{{ pri_interface }}", description: "{{ primary_circuit }} uplink" }
+  - { device: "{{ a_side_router }}", name: "{{ sec_interface }}", description: "{{ backup_circuit }} uplink" }
+  - { device: "{{ z_side_router }}", name: "{{ pri_interface }}", description: "{{ primary_circuit }} uplink" }
+  - { device: "{{ z_side_router }}", name: "{{ sec_interface }}", description: "{{ backup_circuit }} uplink" }
+
+# IP addresses (/30 point-to-point links)
+demo_ips:
+  - { address: "{{ a_side_pri_ip }}", device: "{{ a_side_router }}", interface: "{{ pri_interface }}", description: "{{ primary_circuit }} link" }
+  - { address: "{{ a_side_sec_ip }}", device: "{{ a_side_router }}", interface: "{{ sec_interface }}", description: "{{ backup_circuit }} link" }
+  - { address: "{{ z_side_pri_ip }}", device: "{{ z_side_router }}", interface: "{{ pri_interface }}", description: "{{ primary_circuit }} link" }
+  - { address: "{{ z_side_sec_ip }}", device: "{{ z_side_router }}", interface: "{{ sec_interface }}", description: "{{ backup_circuit }} link" }
+
+# Circuit terminations (A-side and Z-side per circuit)
+demo_terminations:
+  - { circuit: "{{ primary_circuit }}", side: A, site: "{{ a_side_site_name }}", port_speed: 10000 }
+  - { circuit: "{{ primary_circuit }}", side: Z, site: "{{ z_side_site_name }}", port_speed: 10000 }
+  - { circuit: "{{ backup_circuit }}", side: A, site: "{{ a_side_site_name }}", port_speed: 5000 }
+  - { circuit: "{{ backup_circuit }}", side: Z, site: "{{ z_side_site_name }}", port_speed: 5000 }
+
+# Cables (circuit termination ↔ router interface)
+demo_cables:
+  - { circuit: "{{ primary_circuit }}", term_side: A, device: "{{ a_side_router }}", interface: "{{ pri_interface }}" }
+  - { circuit: "{{ primary_circuit }}", term_side: Z, device: "{{ z_side_router }}", interface: "{{ pri_interface }}" }
+  - { circuit: "{{ backup_circuit }}", term_side: A, device: "{{ a_side_router }}", interface: "{{ sec_interface }}" }
+  - { circuit: "{{ backup_circuit }}", term_side: Z, device: "{{ z_side_router }}", interface: "{{ sec_interface }}" }
+
+# Reset: circuits that should start offline
+offline_circuits:
+  - "{{ backup_circuit }}"

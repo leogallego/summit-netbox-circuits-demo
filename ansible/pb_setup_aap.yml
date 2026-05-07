@@ -312,8 +312,6 @@
         execution_environment: "{{ ee_name }}"
         job_type: run
         ask_variables_on_launch: true
-        extra_vars:
-          failed_circuit: "IPLC-GB-PH-PRI"
         credentials:
           - "{{ netbox_cred_name }}"
         description: >-
@@ -335,8 +333,6 @@
         execution_environment: "{{ ee_name }}"
         job_type: run
         ask_variables_on_launch: true
-        extra_vars:
-          failed_circuit: "IPLC-GB-PH-PRI"
         credentials: >-
           {{
             [netbox_cred_name]
@@ -379,8 +375,6 @@
           Automated WAN circuit failover: updates NetBox
           and deploys the incident report.
         ask_variables_on_launch: true
-        extra_vars:
-          failed_circuit: "IPLC-GB-PH-PRI"
         workflow_nodes:
           - identifier: failover
             unified_job_template:

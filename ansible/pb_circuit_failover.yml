@@ -19,7 +19,7 @@
 # Usage (manual):
 #   ansible-playbook ansible/pb_circuit_failover.yml
 #   ansible-playbook ansible/pb_circuit_failover.yml \
-#     --extra-vars "failed_circuit=IPLC-GB-JP-PRI"
+#     --extra-vars "failed_circuit=IPLC-GB-AT-PRI"
 #
 # Usage (from AAP workflow):
 #   Pass the circuit CID in the extra_vars payload as 'failed_circuit'.
@@ -33,7 +33,6 @@
     - vars/netbox_creds.yml
 
   vars:
-    failed_circuit: "IPLC-GB-AT-PRI"
     report_dir: "{{ playbook_dir }}/reports"
 
   tasks:
@@ -399,9 +398,6 @@
   hosts: failover_routers
   gather_facts: false
   ignore_unreachable: true
-
-  vars:
-    failed_circuit: "IPLC-GB-AT-PRI"
 
   tasks:
     - name: Push failover routing config

@@ -229,10 +229,21 @@
             name: "{{ item.interface }}"
           status: connected
         state: present
+      register: cable_result
       ignore_errors: true
       loop: "{{ demo_cables }}"
       loop_control:
         label: "{{ item.circuit }} {{ item.term_side }}-side ↔ {{ item.device }}:{{ item.interface }}"
+
+    - name: Fail on unexpected cable errors
+      ansible.builtin.fail:
+        msg: "Cable creation failed with unexpected error: {{ item.msg }}"
+      when:
+        - item is failed
+        - "'API_APPS_ENDPOINTS' not in item.msg"
+      loop: "{{ cable_result.results }}"
+      loop_control:
+        label: "{{ item.item.circuit }} {{ item.item.term_side }}-side"
 
     # ── Summary ───────────────────────────────────────────────────────────────
 

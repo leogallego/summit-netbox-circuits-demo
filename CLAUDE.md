@@ -33,7 +33,7 @@ cp .env.example .env        # fill in credentials
 
 # Run playbooks locally (sources .env, uses localhost inventory)
 ./run-playbook.sh ansible/pb_circuit_failover.yml
-./run-playbook.sh ansible/pb_circuit_failover.yml --extra-vars "failed_circuit=IPLC-GB-JP-PRI"
+./run-playbook.sh ansible/pb_circuit_failover.yml --extra-vars "failed_circuit=IPLC-GB-AT-PRI"
 ./run-playbook.sh ansible/pb_deploy_report.yml --extra-vars "failed_circuit=IPLC-GB-AT-PRI"
 
 # Local testing (no AAP needed)
@@ -67,7 +67,7 @@ Infrastructure variables (`REPORT_SERVER_HOST`, `ROUTER_IP`, etc.) are written t
 - **Report server**: EC2 instance provisioned by Terraform, nginx with HTTPS, SSH on port 2222.
 - **GitHub Pages as default report target**: The HTML failover report is published to the repo's `docs/` directory via the GitHub Contents API (`ansible.builtin.uri`). GitHub Pages serves it from the `main` branch `/docs` path. The SSH/EC2 report server is kept as a conditional fallback.
 - **NetBox circuit tag `dd`**: All demo-relevant circuits are tagged `dd` in NetBox. This tag scopes all queries — backup discovery, reset, and report generation only touch `dd`-tagged circuits.
-- **NetBox v4.5 token compatibility**: v2 tokens (default on NetBox 4.5+) work with pynetbox >= 7.6.0. The `netbox-summit-2026-ee` EE ships pynetbox 7.6.1. Pass the full `nbt_<key>.<token>` format.
+- **NetBox v4.5 token compatibility**: Use v1 tokens — v2 tokens (default on NetBox 4.5+) are untested with the `netbox.netbox` collection. When creating a token, explicitly request v1 format in the NetBox UI or provisioning API.
 - **Webhook body template**: Use empty body_template (NetBox default payload). Custom templates with `{{ data | tojson }}` fail on NetBox v4.5.
 - **Always test with the EE**: Use `ansible-navigator` with `quay.io/acme_corp/netbox-summit-2026-ee:v3.22-3` for all local testing. Never use bare `ansible-playbook` on host Python — it bypasses the EE's pinned collections and Python dependencies, leading to version mismatches that don't reproduce on AAP.
 

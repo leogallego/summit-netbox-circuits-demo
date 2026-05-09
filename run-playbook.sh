@@ -3,7 +3,7 @@
 # All settings (EE image, env injection, mode) come from ansible-navigator.yml.
 #
 # Usage: ./run-playbook.sh ansible/pb_circuit_failover.yml [extra args]
-#        ./run-playbook.sh ansible/pb_circuit_failover.yml --extra-vars "failed_circuit=IPLC-GB-JP-PRI"
+#        ./run-playbook.sh ansible/pb_circuit_failover.yml --extra-vars "failed_circuit=IPLC-GB-AT-PRI"
 
 set -e
 

@@ -37,7 +37,6 @@ ansible-navigator:
         - ROUTER_USERNAME
         - ROUTER_PRIMARY_GW
         - ROUTER_BACKUP_GW
-        - GITHUB_PAGES_REPO
 
   mode: stdout
 

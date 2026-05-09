@@ -151,6 +151,7 @@ ansible/
   pb_deploy_report.yml      # Workflow Step 2: generate timestamped report, publish to GitHub Pages
   pb_reset_demo.yml         # Reset all dd-tagged circuits to starting state
   pb_seed_netbox.yml        # Seed NetBox with demo data (sites, circuits, interfaces, IPs, cables)
+  pb_launch_demo_router.yml # Launch CSR 1000v 16.12 on AWS for router testing
   pb_setup_local_netbox.yml # Deploy local NetBox via Podman for testing
   pb_setup_local_eda.yml    # Deploy local EDA environment for testing
   templates/

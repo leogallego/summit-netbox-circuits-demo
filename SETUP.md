@@ -65,7 +65,7 @@ All resources are scoped to the `SummitCollection` organization (configurable vi
 | Credential | SummitCollection Network Router | Network credential for Cisco router (conditional) |
 | Inventory | SummitCollection Localhost | Localhost + report server hosts |
 | Project | SummitCollection NetBox Circuits Demo | Git source — this repository, synced on launch |
-| Execution Environment | SummitCollection Execution Environment | `quay.io/acme_corp/netbox-summit-2026-ee:v3.22` |
+| Execution Environment | SummitCollection Execution Environment | `quay.io/acme_corp/netbox-summit-2026-ee:v3.22-3` |
 | Job Template | SummitCollection Circuit Failover | Runs `pb_circuit_failover.yml`, accepts `failed_circuit` extra var |
 | Job Template | SummitCollection Deploy Report | Runs `pb_deploy_report.yml`, accepts `failed_circuit` extra var |
 | Job Template | SummitCollection Reset Demo | Runs `pb_reset_demo.yml` |
@@ -73,7 +73,7 @@ All resources are scoped to the `SummitCollection` organization (configurable vi
 
 ### Execution Environment
 
-The project EE (`quay.io/acme_corp/netbox-summit-2026-ee:v3.22`) includes all required collections and Python dependencies:
+The project EE (`quay.io/acme_corp/netbox-summit-2026-ee:v3.22-3`) includes all required collections and Python dependencies:
 - `netbox.netbox` >= 3.22.0, `ansible.controller`, `ansible.eda`
 - `cisco.ios`, `ansible.netcommon`, `ansible.utils`
 - `pynetbox` >= 7.6.0

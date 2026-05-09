@@ -3,9 +3,9 @@ ansible-navigator:
   execution-environment:
     container-engine: podman
     enabled: true
-    image: quay.io/acme_corp/netbox-summit-2026-ee:v3.22
+    image: quay.io/acme_corp/netbox-summit-2026-ee:v3.22-3
     pull:
-      policy: never
+      policy: missing
     environment-variables:
       pass:
         - AWS_ACCESS_KEY_ID

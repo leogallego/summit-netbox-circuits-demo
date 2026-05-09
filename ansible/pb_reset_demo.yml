@@ -126,6 +126,21 @@
                    validate_certs=netbox_validate_certs,
                    raw_data=true) }}
 
+    - name: Find backup circuit object
+      ansible.builtin.set_fact:
+        backup: >-
+          {{ all_circuits | selectattr('cid', 'eq', backup_circuit) | first }}
+
+    - name: Query backup circuit terminations
+      ansible.builtin.set_fact:
+        backup_terms: >-
+          {{ query('netbox.netbox.nb_lookup', 'circuit-terminations',
+                   api_endpoint=netbox_url,
+                   token=netbox_token,
+                   api_filter='circuit_id=' ~ backup.id,
+                   validate_certs=netbox_validate_certs,
+                   raw_data=true) }}
+
     - name: Set A-side and Z-side sites
       ansible.builtin.set_fact:
         a_side_site: "{{ (primary_terms | selectattr('term_side', 'eq', 'A') | first).termination }}"
@@ -133,6 +148,40 @@
       when: >-
         (primary_terms | selectattr('term_side', 'eq', 'A') | list | length > 0) and
         (primary_terms | selectattr('term_side', 'eq', 'Z') | list | length > 0)
+
+    - name: Query IPs for primary circuit interfaces
+      ansible.builtin.set_fact:
+        primary_term_ips: >-
+          {{ primary_term_ips | default({}) | combine({
+               item.link_peers[0].device.name:
+                 query('netbox.netbox.nb_lookup', 'ip-addresses',
+                       api_endpoint=netbox_url,
+                       token=netbox_token,
+                       api_filter='interface_id=' ~ item.link_peers[0].id,
+                       validate_certs=netbox_validate_certs,
+                       raw_data=true)
+             }) }}
+      loop: "{{ primary_terms | selectattr('link_peers', 'defined') | list }}"
+      loop_control:
+        label: "{{ item.link_peers[0].device.name | default('uncabled') }}"
+      when: item.link_peers | default([]) | length > 0
+
+    - name: Query IPs for backup circuit interfaces
+      ansible.builtin.set_fact:
+        backup_term_ips: >-
+          {{ backup_term_ips | default({}) | combine({
+               item.link_peers[0].device.name:
+                 query('netbox.netbox.nb_lookup', 'ip-addresses',
+                       api_endpoint=netbox_url,
+                       token=netbox_token,
+                       api_filter='interface_id=' ~ item.link_peers[0].id,
+                       validate_certs=netbox_validate_certs,
+                       raw_data=true)
+             }) }}
+      loop: "{{ backup_terms | selectattr('link_peers', 'defined') | list }}"
+      loop_control:
+        label: "{{ item.link_peers[0].device.name | default('uncabled') }}"
+      when: item.link_peers | default([]) | length > 0
 
     - name: Query routers at A-side site
       ansible.builtin.set_fact:
@@ -170,6 +219,18 @@
         ansible_network_os: cisco.ios.ios
         ansible_connection: ansible.netcommon.network_cli
         ansible_network_cli_ssh_type: paramiko
+        primary_gw: >-
+          {{ (primary_term_ips[item.name][0].address
+              | ansible.utils.ipaddr('network/prefix')
+              | ansible.utils.nthhost(1))
+             if (primary_term_ips is defined and item.name in primary_term_ips)
+             else lookup('env', 'ROUTER_PRIMARY_GW') | default('172.16.0.1', true) }}
+        backup_gw: >-
+          {{ (backup_term_ips[item.name][0].address
+              | ansible.utils.ipaddr('network/prefix')
+              | ansible.utils.nthhost(1))
+             if (backup_term_ips is defined and item.name in backup_term_ips)
+             else lookup('env', 'ROUTER_BACKUP_GW') | default('172.16.1.1', true) }}
       loop: >-
         {{
           all_routers
@@ -192,6 +253,7 @@
 
 # ── Play 2: Reset router routing to primary ───────────────────────────────────
 # Only runs when routers with real IPs were discovered in Play 1.
+# Gateways are derived from NetBox per-router (passed as host vars from Play 1).
 # Fatal: reset failures surface as errors (unlike failover, which must continue).
 
 - name: Reset router routing to primary
@@ -199,18 +261,14 @@
   gather_facts: false
   ignore_unreachable: true
 
-  vars:
-    router_primary_gw: "{{ lookup('env', 'ROUTER_PRIMARY_GW') | default('172.16.0.1', true) }}"
-    router_backup_gw: "{{ lookup('env', 'ROUTER_BACKUP_GW') | default('172.16.1.1', true) }}"
-
   tasks:
     - name: Restore primary routing config
       block:
         - name: Remove backup route and restore primary route
           cisco.ios.ios_config:
             lines:
-              - "no ip route 0.0.0.0 0.0.0.0 {{ router_backup_gw }}"
-              - "ip route 0.0.0.0 0.0.0.0 {{ router_primary_gw }}"
+              - "no ip route 0.0.0.0 0.0.0.0 {{ backup_gw }}"
+              - "ip route 0.0.0.0 0.0.0.0 {{ primary_gw }}"
             save_when: changed
 
         - name: Verify primary route restored
@@ -220,16 +278,16 @@
 
         - name: Assert primary route is in running config
           ansible.builtin.assert:
-            that: "router_primary_gw in verify_result.stdout[0]"
+            that: "primary_gw in verify_result.stdout[0]"
             fail_msg: >-
-              Primary route ({{ router_primary_gw }}) not found
+              Primary route ({{ primary_gw }}) not found
               in running-config after reset
 
         - name: Router reset config applied
           ansible.builtin.debug:
             msg: >-
-              {{ inventory_hostname }}: backup route ({{ router_backup_gw }})
-              removed, primary route ({{ router_primary_gw }}) restored
+              {{ inventory_hostname }}: backup route ({{ backup_gw }})
+              removed, primary route ({{ primary_gw }}) restored
             verbosity: 0
 
       rescue:

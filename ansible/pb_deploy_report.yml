@@ -342,7 +342,6 @@
         report_files: >-
           {{ github_dir_listing.json
              | selectattr('name', 'match', '^failover_report_.*\.html$')
-             | sort(attribute='name', reverse=true)
              | list }}
 
     - name: Generate index page

@@ -91,7 +91,6 @@
     # GitHub Pages
     github_token: "{{ lookup('env', 'GITHUB_TOKEN') | default('', true) }}"
     github_pages_repo: "{{ lookup('env', 'GITHUB_REPO') | default('leogallego/summit-netbox-circuits-demo', true) }}"
-    github_report_dir: "{{ lookup('env', 'GITHUB_REPORT_DIR') | default('docs', true) }}"
     github_cred_name: "{{ aap_org_name }} GitHub"
     # NetBox resource names
     netbox_webhook_name: "{{ aap_org_name }} AAP Circuit Failover"
@@ -183,9 +182,6 @@
             - id: GITHUB_REPO
               type: string
               label: "Repository (owner/name)"
-            - id: GITHUB_REPORT_DIR
-              type: string
-              label: "Report directory in repo"
           required:
             - GITHUB_TOKEN
             - GITHUB_REPO
@@ -193,7 +189,6 @@
           env:
             GITHUB_TOKEN: "{{ '{{' }} GITHUB_TOKEN {{ '}}' }}"
             GITHUB_REPO: "{{ '{{' }} GITHUB_REPO {{ '}}' }}"
-            GITHUB_REPORT_DIR: "{{ '{{' }} GITHUB_REPORT_DIR {{ '}}' }}"
         state: present
       when: github_token | length > 0
       tags:
@@ -209,7 +204,6 @@
         inputs:
           GITHUB_TOKEN: "{{ github_token }}"
           GITHUB_REPO: "{{ github_pages_repo }}"
-          GITHUB_REPORT_DIR: "{{ github_report_dir }}"
         state: present
       when: github_token | length > 0
       tags:

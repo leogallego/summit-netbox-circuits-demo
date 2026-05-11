@@ -65,7 +65,7 @@ Infrastructure variables (`REPORT_SERVER_HOST`, `ROUTER_IP`, etc.) are written t
 - **netbox.netbox collection**: All NetBox interactions use `nb_lookup` (reads) and `netbox_circuit` (status updates). No raw `ansible.builtin.uri` API calls.
 - **Simulated router operations**: Router config pushes are `debug` tasks, not real device interactions. The demo has no actual network devices.
 - **Report server**: EC2 instance provisioned by Terraform, nginx with HTTPS, SSH on port 2222.
-- **GitHub Pages as default report target**: The HTML failover report is published to the repo's `docs/` directory via the GitHub Contents API (`ansible.builtin.uri`). GitHub Pages serves it from the `main` branch `/docs` path. The SSH/EC2 report server is kept as a conditional fallback.
+- **GitHub Pages as default report target**: The HTML failover report is published to the `gh-pages` branch root via the GitHub Contents API (`ansible.builtin.uri`). GitHub Pages serves it from the `gh-pages` branch. This keeps report artifacts off `main` so report deploys don't cause push conflicts. The SSH/EC2 report server is kept as a conditional fallback.
 - **NetBox circuit tag `dd`**: All demo-relevant circuits are tagged `dd` in NetBox. This tag scopes all queries — backup discovery, reset, and report generation only touch `dd`-tagged circuits.
 - **NetBox v4.5 token compatibility**: Use v1 tokens — v2 tokens (default on NetBox 4.5+) are untested with the `netbox.netbox` collection. When creating a token, explicitly request v1 format in the NetBox UI or provisioning API.
 - **Webhook body template**: Use empty body_template (NetBox default payload). Custom templates with `{{ data | tojson }}` fail on NetBox v4.5.

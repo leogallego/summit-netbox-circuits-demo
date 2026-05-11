@@ -264,7 +264,7 @@
 
     - name: Check if report already exists on GitHub
       ansible.builtin.uri:
-        url: "https://api.github.com/repos/{{ github_repo }}/contents/{{ github_report_dir }}/{{ report_filename }}"
+        url: "https://api.github.com/repos/{{ github_repo }}/contents/{{ report_filename }}?ref={{ github_pages_branch }}"
         method: GET
         headers:
           Authorization: "Bearer {{ github_token }}"
@@ -272,6 +272,7 @@
         status_code:
           - 200
           - 404
+        timeout: 60
       register: github_existing_file
 
     - name: Set file SHA for update
@@ -290,6 +291,7 @@
           {{
             {
               'message': 'Update failover report',
+              'branch': github_pages_branch,
               'content': report_content.content
             }
             | combine(
@@ -301,7 +303,7 @@
 
     - name: Push report to GitHub repository
       ansible.builtin.uri:
-        url: "https://api.github.com/repos/{{ github_repo }}/contents/{{ github_report_dir }}/{{ report_filename }}"
+        url: "https://api.github.com/repos/{{ github_repo }}/contents/{{ report_filename }}"
         method: PUT
         headers:
           Authorization: "Bearer {{ github_token }}"
@@ -311,6 +313,7 @@
         status_code:
           - 200
           - 201
+        timeout: 60
       register: github_push_result
 
     - name: Report published to GitHub Pages
@@ -324,13 +327,14 @@
 
     - name: List existing reports in GitHub Pages directory
       ansible.builtin.uri:
-        url: "https://api.github.com/repos/{{ github_repo }}/contents/{{ github_report_dir }}"
+        url: "https://api.github.com/repos/{{ github_repo }}/contents?ref={{ github_pages_branch }}"
         method: GET
         headers:
           Authorization: "Bearer {{ github_token }}"
           Accept: "application/vnd.github.v3+json"
         status_code:
           - 200
+        timeout: 60
       register: github_dir_listing
 
     - name: Build report list from directory
@@ -354,7 +358,7 @@
 
     - name: Check if index.html exists on GitHub
       ansible.builtin.uri:
-        url: "https://api.github.com/repos/{{ github_repo }}/contents/{{ github_report_dir }}/index.html"
+        url: "https://api.github.com/repos/{{ github_repo }}/contents/index.html?ref={{ github_pages_branch }}"
         method: GET
         headers:
           Authorization: "Bearer {{ github_token }}"
@@ -362,20 +366,23 @@
         status_code:
           - 200
           - 404
+        timeout: 60
       register: github_existing_index
 
     - name: Push index.html to GitHub Pages
       ansible.builtin.uri:
-        url: "https://api.github.com/repos/{{ github_repo }}/contents/{{ github_report_dir }}/index.html"
+        url: "https://api.github.com/repos/{{ github_repo }}/contents/index.html"
         method: PUT
         headers:
           Authorization: "Bearer {{ github_token }}"
           Accept: "application/vnd.github.v3+json"
         body_format: json
+        timeout: 60
         body: >-
           {{
             {
               'message': 'Update report index',
+              'branch': github_pages_branch,
               'content': index_content.content
             }
             | combine(

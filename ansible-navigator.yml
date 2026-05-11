@@ -26,7 +26,6 @@ ansible-navigator:
         - AH_TOKEN
         - GITHUB_TOKEN
         - GITHUB_REPO
-        - GITHUB_REPORT_DIR
         - REPORT_SERVER_HOST
         - REPORT_SERVER_PORT
         - REPORT_URL

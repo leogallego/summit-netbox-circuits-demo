@@ -29,8 +29,9 @@
          default(lookup('env', 'AAP_URL') | urlsplit('hostname'), true) }}
     mcp_aap_port: "{{ lookup('env', 'MCP_AAP_PORT') | default('8448', true) }}"
     mcp_aap_base_url: "https://{{ mcp_aap_host }}:{{ mcp_aap_port }}"
+    mcp_netbox_token: "{{ lookup('env', 'MCP_NETBOX_TOKEN') }}"
+    mcp_netbox_enabled: "{{ mcp_netbox_token | length > 0 }}"
     netbox_url: "{{ lookup('env', 'NETBOX_URL') }}"
-    netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
     netbox_verify_ssl: "{{ lookup('env', 'NETBOX_VERIFY_SSL') | default('true', true) | bool }}"
     netbox_mcp_image: "netboxlabs/netbox-mcp-server:1.2.0"
     mcp_services:
@@ -64,6 +65,7 @@
         cmd: "{{ container_runtime }} pull {{ netbox_mcp_image }}"
       register: netbox_mcp_pull
       changed_when: "'Pulling' in netbox_mcp_pull.stdout or 'Downloading' in netbox_mcp_pull.stdout"
+      when: mcp_netbox_enabled
       tags:
         - netbox
 
@@ -79,8 +81,7 @@
       ansible.builtin.debug:
         msg: >-
           .mcp.json written — {{ mcp_services | length }} AAP MCP services
-          pointing at {{ mcp_aap_base_url }}, plus NetBox
-          ({{ netbox_mcp_image }} via {{ container_runtime }}).
+          pointing at {{ mcp_aap_base_url }}{{ ', plus NetBox (' ~ netbox_mcp_image ~ ' via ' ~ container_runtime ~ ')' if mcp_netbox_enabled else ' (NetBox MCP skipped — MCP_NETBOX_TOKEN not set)' }}.
           Set MCP_AAP_TOKEN in your .env to authenticate.
         verbosity: 0
       tags:

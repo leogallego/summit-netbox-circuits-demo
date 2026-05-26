@@ -11,10 +11,12 @@
 #     - NetBox credential (Summit Demo)
 #     - Localhost inventory + host
 #     - GitHub project
+#     - Execution Environment (standard + legacy-crypto)
 #     - Job template: Circuit Failover
+#     - Job template: Push Router Config
 #     - Job template: Deploy Report
 #     - Job template: Reset Demo
-#     - Workflow template: Circuit Failover Workflow (Failover → Report)
+#     - Workflow: Circuit Failover (Failover → Router Config → Report)
 #
 #   EDA:
 #     - Decision environment (or reuse existing)
@@ -80,7 +82,7 @@
     ee_name: "{{ aap_org_name }} Execution Environment"
     ee_image: "quay.io/acme_corp/netbox-summit-2026-ee:v3.22-3"
     ee_legacy_name: "{{ aap_org_name }} Legacy Crypto EE"
-    ee_legacy_image: "quay.io/acme_corp/netbox-summit-2026-ee-legacy-crypto:latest"
+    ee_legacy_image: "quay.io/acme_corp/netbox-webinar-legacy-crypto-ee:latest"
     registry_cred_name: "{{ aap_org_name }} Container Registry"
     rh_registry_cred_name: "{{ aap_org_name }} Red Hat Registry"
     galaxy_cred_name: "{{ aap_org_name }} Automation Hub"

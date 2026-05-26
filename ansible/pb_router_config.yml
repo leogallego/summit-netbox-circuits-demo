@@ -79,6 +79,9 @@
         verbosity: 0
 
 # ── Play 2: Push failover routing to real routers ─────────────────────────────
+# NOTE: set_stats with per_host: false means last host wins. With a single
+# demo router this is fine; for multiple routers, add a Play 3 on localhost
+# to aggregate per-host results before calling set_stats.
 
 - name: "Apply failover routing — {{ failed_circuit | default('unknown') }}"
   hosts: failover_routers

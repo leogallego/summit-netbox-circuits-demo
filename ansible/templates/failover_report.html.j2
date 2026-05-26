@@ -255,6 +255,7 @@
          ({{ backup.commit_rate // 1000 }} Mbps — highest available capacity).</p>
     </div>
 
+{% if router_config_applied | default(true) | bool %}
     <div class="step push">
       <h3>Router configuration updated <span class="ts">T+8.3s</span></h3>
       <p>Ansible Automation Platform pushed failover routing to <strong>{{ routers | length }}</strong> router(s)
@@ -268,6 +269,17 @@
   end</div>
 {% endfor %}
     </div>
+{% else %}
+    <div class="step push" style="border-left-color: #f59e0b;">
+      <h3><span class="badge warning">WARNING</span> Router configuration was NOT applied <span class="ts">T+8.3s</span></h3>
+      <p>The router config push step did not complete successfully.
+{% if router_config_error | default('') | length > 0 %}
+         Reason: <strong>{{ router_config_error }}</strong>.
+{% endif %}
+         NetBox SoT has been updated but router routing tables may still point to the failed circuit.
+         <strong>Manual intervention may be required.</strong></p>
+    </div>
+{% endif %}
 
     <div class="step update">
       <h3>NetBox Source of Truth updated <span class="ts">T+21.6s</span></h3>

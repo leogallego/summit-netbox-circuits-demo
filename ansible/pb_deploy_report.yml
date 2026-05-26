@@ -1,14 +1,15 @@
 ---
 # pb_deploy_report.yml
 #
-# Second step in the Circuit Failover workflow.
+# Step 3 of 3 in the Circuit Failover workflow.
 #
 # Re-queries NetBox for the current state of the failed circuit and its
 # backup, generates the HTML failover report, then deploys it to the
 # report web server.
 #
 # Expects 'failed_circuit' to be set as an extra var (passed through
-# from the workflow).
+# from the workflow). Optionally receives router_config_applied (bool)
+# and router_config_error (string) via set_stats from step 2.
 #
 # Usage (manual):
 #   ansible-playbook ansible/pb_deploy_report.yml \
@@ -233,6 +234,8 @@
         candidates: "{{ backup_candidates }}"
         netbox_base_url: "{{ netbox_url }}"
         gateways: "{{ router_gateways | default({}) }}"
+        router_config_applied: "{{ router_config_applied | default(true) }}"
+        router_config_error: "{{ router_config_error | default('') }}"
 
     - name: Report generated
       ansible.builtin.debug:

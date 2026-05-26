@@ -1,0 +1,130 @@
+---
+# pb_router_config.yml
+#
+# Push failover routing configuration to real routers.
+#
+# Step 2 of 3 in the Circuit Failover workflow. Runs after
+# pb_circuit_failover.yml has updated NetBox, and before
+# pb_deploy_report.yml generates the incident report.
+#
+# Receives router targets via set_stats artifacts from the failover
+# step (AAP propagates these as extra_vars). No NetBox dependency —
+# this playbook runs on the legacy-crypto EE which only needs
+# cisco.ios and ansible.netcommon.
+#
+# Uses set_stats to pass router_config_applied (bool) and
+# router_config_error to the report step.
+#
+# Input variables (from workflow extra_vars / set_stats):
+#   failed_circuit  — CID of the failed circuit (passed through workflow)
+#   router_targets  — list of dicts from failover step:
+#     [{ name, ip, failed_gw, backup_gw }, ...]
+#
+# Usage (standalone testing):
+#   ansible-playbook ansible/pb_router_config.yml \
+#     -e failed_circuit=IPLC-GB-AT-PRI \
+#     -e '{"router_targets": [{"name": "rtr1", "ip": "10.0.0.1", "failed_gw": "172.16.0.1", "backup_gw": "172.16.1.1"}]}'
+
+- name: "Push failover routing — {{ failed_circuit }}"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Skip if no router targets provided
+      when: router_targets | default([]) | length == 0
+      block:
+        - name: No router targets — skipping config push
+          ansible.builtin.debug:
+            msg: >-
+              No router targets received from failover step.
+              This is normal when all routers are simulated (no real IPs in NetBox).
+            verbosity: 0
+
+        - name: Flag router config as skipped (no targets)
+          ansible.builtin.set_stats:
+            data:
+              router_config_applied: false
+              router_config_error: "No router targets provided — simulated routers only"
+            per_host: false
+
+        - name: End play — no targets
+          ansible.builtin.meta: end_play
+
+    # ── Build dynamic inventory from set_stats data ──────────────────────────
+
+    - name: Add routers to dynamic inventory
+      ansible.builtin.add_host:
+        name: "{{ item.name }}"
+        groups: failover_routers
+        ansible_host: "{{ item.ip }}"
+        ansible_user: "{{ lookup('env', 'ROUTER_USERNAME') | default('iosuser', true) }}"
+        ansible_password: "{{ lookup('env', 'ROUTER_PASSWORD') | default(omit, true) }}"
+        ansible_ssh_private_key_file: "{{ lookup('env', 'PRIVATE_KEY_PATH') | default(omit, true) }}"
+        ansible_network_os: cisco.ios.ios
+        ansible_connection: ansible.netcommon.network_cli
+        ansible_network_cli_ssh_type: libssh
+        ansible_host_key_checking: false
+        failed_gw: "{{ item.failed_gw }}"
+        backup_gw: "{{ item.backup_gw }}"
+      loop: "{{ router_targets }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Show router targets
+      ansible.builtin.debug:
+        msg: >-
+          Pushing failover config to {{ router_targets | length }} router(s):
+          {{ router_targets | map(attribute='name') | join(', ') }}
+        verbosity: 0
+
+# ── Play 2: Push failover routing to real routers ─────────────────────────────
+# NOTE: set_stats with per_host: false means last host wins. With a single
+# demo router this is fine; for multiple routers, add a Play 3 on localhost
+# to aggregate per-host results before calling set_stats.
+
+- name: "Apply failover routing — {{ failed_circuit | default('unknown') }}"
+  hosts: failover_routers
+  gather_facts: false
+  ignore_unreachable: true
+
+  tasks:
+    - name: Push failover routing config
+      block:
+        - name: Remove failed route and add backup route
+          cisco.ios.ios_config:
+            lines:
+              - "no ip route 0.0.0.0 0.0.0.0 {{ failed_gw }}"
+              - "ip route 0.0.0.0 0.0.0.0 {{ backup_gw }}"
+            save_when: changed
+
+        - name: Router failover config applied
+          ansible.builtin.debug:
+            msg: >-
+              {{ inventory_hostname }}: failed route ({{ failed_gw }})
+              removed, backup route ({{ backup_gw }}) added
+            verbosity: 0
+
+        - name: Flag router config as applied
+          ansible.builtin.set_stats:
+            data:
+              router_config_applied: true
+            per_host: false
+
+      rescue:
+        - name: Router config push failed (non-fatal)
+          ansible.builtin.debug:
+            msg: >-
+              WARNING: Could not push config to {{ inventory_hostname }}.
+              Error: {{ ansible_failed_result.msg | default('unknown') }}.
+              Workflow continues to Deploy Report step.
+            verbosity: 0
+
+        - name: Flag router config as failed
+          ansible.builtin.set_stats:
+            data:
+              router_config_applied: false
+              router_config_error: >-
+                Config push failed on {{ inventory_hostname }}:
+                {{ ansible_failed_result.msg | default('unknown') }}
+            per_host: false

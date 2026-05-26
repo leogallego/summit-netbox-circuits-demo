@@ -11,10 +11,12 @@
 #     - NetBox credential (Summit Demo)
 #     - Localhost inventory + host
 #     - GitHub project
+#     - Execution Environment (standard + legacy-crypto)
 #     - Job template: Circuit Failover
+#     - Job template: Push Router Config
 #     - Job template: Deploy Report
 #     - Job template: Reset Demo
-#     - Workflow template: Circuit Failover Workflow (Failover → Report)
+#     - Workflow: Circuit Failover (Failover → Router Config → Report)
 #
 #   EDA:
 #     - Decision environment (or reuse existing)
@@ -45,7 +47,7 @@
     - vars/netbox_creds.yml
 
   vars:
-    aap_org_name: "SummitCollection"
+    aap_org_name: "Webinar"
     controller_api_base: "{{ lookup('env', 'AAP_URL') }}/api/controller"
     github_repo: "https://github.com/leogallego/summit-netbox-circuits-demo"
     github_branch: "main"
@@ -65,6 +67,7 @@
     inventory_name: "{{ aap_org_name }} Localhost"
     controller_project_name: "{{ aap_org_name }} NetBox Circuits Demo"
     jt_failover_name: "{{ aap_org_name }} Circuit Failover"
+    jt_router_config_name: "{{ aap_org_name }} Push Router Config"
     jt_report_name: "{{ aap_org_name }} Deploy Report"
     jt_reset_name: "{{ aap_org_name }} Reset Demo"
     workflow_name: "{{ aap_org_name }} Circuit Failover Workflow"
@@ -75,9 +78,11 @@
     router_device_role: "router"
     router_device_site: "us-atlanta"
     router_mgmt_iface_name: "GigabitEthernet1"
-    # Execution Environment
+    # Execution Environments
     ee_name: "{{ aap_org_name }} Execution Environment"
     ee_image: "quay.io/acme_corp/netbox-summit-2026-ee:v3.22-3"
+    ee_legacy_name: "{{ aap_org_name }} Legacy Crypto EE"
+    ee_legacy_image: "quay.io/acme_corp/netbox-webinar-legacy-crypto-ee:latest"
     registry_cred_name: "{{ aap_org_name }} Container Registry"
     rh_registry_cred_name: "{{ aap_org_name }} Red Hat Registry"
     galaxy_cred_name: "{{ aap_org_name }} Automation Hub"
@@ -292,6 +297,19 @@
       tags:
         - ee
 
+    - name: Create legacy-crypto execution environment
+      ansible.controller.execution_environment:
+        name: "{{ ee_legacy_name }}"
+        image: "{{ ee_legacy_image }}"
+        organization: "{{ aap_org_name }}"
+        credential: "{{ registry_cred_name if lookup('env', 'REGISTRY_USERNAME') | length > 0 else omit }}"
+        description: >-
+          EE with SHA-1 crypto policy overrides for IOS-XE < 17 routers.
+        pull: missing
+        state: present
+      tags:
+        - ee
+
     # ── Controller: Job Template — Circuit Failover ───────────────────────────
 
     - name: Create Circuit Failover job template
@@ -307,8 +325,28 @@
         credentials:
           - "{{ netbox_cred_name }}"
         description: >-
-          Automated circuit failover driven by NetBox SoT.
+          Step 1: Query NetBox, discover backup circuit, update SoT.
           Pass failed_circuit as extra var.
+        state: present
+      tags:
+        - job_templates
+
+    # ── Controller: Job Template — Push Router Config ────────────────────────
+
+    - name: Create Push Router Config job template
+      ansible.controller.job_template:
+        name: "{{ jt_router_config_name }}"
+        organization: "{{ aap_org_name }}"
+        inventory: "{{ inventory_name }}"
+        project: "{{ controller_project_name }}"
+        playbook: "ansible/pb_router_config.yml"
+        execution_environment: "{{ ee_legacy_name }}"
+        job_type: run
+        ask_variables_on_launch: true
+        description: >-
+          Step 2: Push failover routing config to real routers.
+          Receives router targets via set_stats from failover step.
+          Uses legacy-crypto EE for IOS-XE < 17 (SHA-1 SSH).
         state: present
       tags:
         - job_templates
@@ -364,8 +402,8 @@
         name: "{{ workflow_name }}"
         organization: "{{ aap_org_name }}"
         description: >-
-          Automated WAN circuit failover: updates NetBox
-          and deploys the incident report.
+          Automated WAN circuit failover: (1) update NetBox SoT,
+          (2) push router config, (3) generate incident report.
         ask_variables_on_launch: true
         workflow_nodes:
           - identifier: failover
@@ -376,6 +414,15 @@
               type: job_template
             related:
               success_nodes:
+                - identifier: router_config
+          - identifier: router_config
+            unified_job_template:
+              name: "{{ jt_router_config_name }}"
+              organization:
+                name: "{{ aap_org_name }}"
+              type: job_template
+            related:
+              always_nodes:
                 - identifier: report
           - identifier: report
             unified_job_template:
@@ -782,28 +829,14 @@
                 address: "{{ router_ip }}/32"
             state: present
 
-        - name: Attach Network credential to Circuit Failover template
+        - name: Attach Network credential to Push Router Config template
           ansible.controller.job_template:
-            name: "{{ jt_failover_name }}"
+            name: "{{ jt_router_config_name }}"
             organization: "{{ aap_org_name }}"
-            execution_environment: "{{ ee_name }}"
+            execution_environment: "{{ ee_legacy_name }}"
             credentials:
-              - "{{ netbox_cred_name }}"
-              - "{{ report_server_cred_name }}"
               - "{{ router_cred_name }}"
             state: present
-          when: report_server_host | length > 0
-
-        - name: Attach Network credential to Circuit Failover template (no report server)
-          ansible.controller.job_template:
-            name: "{{ jt_failover_name }}"
-            organization: "{{ aap_org_name }}"
-            execution_environment: "{{ ee_name }}"
-            credentials:
-              - "{{ netbox_cred_name }}"
-              - "{{ router_cred_name }}"
-            state: present
-          when: report_server_host | length == 0
 
         - name: Attach Network credential to Reset Demo template
           ansible.controller.job_template:

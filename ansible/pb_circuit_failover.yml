@@ -6,15 +6,17 @@
 # Triggered by a NetBox webhook (via AAP workflow) when a circuit status
 # changes to 'offline'. Can also be run manually for testing.
 #
+# Step 1 of 3 in the Circuit Failover workflow:
+#   1. pb_circuit_failover.yml — query NetBox, discover backup, update SoT
+#   2. pb_router_config.yml — push routing config to real routers (legacy EE)
+#   3. pb_deploy_report.yml — generate and deploy HTML incident report
+#
 # What it does:
 #   1. Queries the failed circuit from NetBox
 #   2. Discovers the A/Z sites from circuit terminations
 #   3. Finds the best available backup circuit between the same sites
-#   4. Pushes router config (real cisco.ios if router has IP, simulated otherwise)
+#   4. Shows simulated router config for routers without real IPs
 #   5. Updates NetBox: marks primary offline, backup active
-#
-# Report generation and deployment is handled by pb_deploy_report.yml,
-# which runs as the second step in the Circuit Failover workflow.
 #
 # Usage (manual):
 #   ansible-playbook ansible/pb_circuit_failover.yml
@@ -256,41 +258,9 @@
       ansible.builtin.set_fact:
         all_routers: "{{ a_side_routers + z_side_routers }}"
 
-    # ── Router operations ───────────────────────────────────────────────────────
-    # Routers with a primary_ip4 in NetBox get real cisco.ios config push (Play 2).
-    # Routers without an IP are simulated with debug stubs below.
-
-    - name: Add routers with real IPs to dynamic inventory
-      ansible.builtin.add_host:
-        name: "{{ item.name }}"
-        groups: failover_routers
-        ansible_host: "{{ item.primary_ip4.address | ansible.utils.ipaddr('address') }}"
-        ansible_user: "{{ lookup('env', 'ROUTER_USERNAME') | default('iosuser', true) }}"
-        ansible_password: "{{ lookup('env', 'ROUTER_PASSWORD') | default(omit, true) }}"
-        ansible_network_os: cisco.ios.ios
-        ansible_connection: ansible.netcommon.network_cli
-        ansible_network_cli_ssh_type: paramiko
-        failed_gw: >-
-          {{ (failed_term_ips[item.name][0].address
-              | ansible.utils.ipaddr('network/prefix')
-              | ansible.utils.nthhost(1))
-             if (failed_term_ips is defined and item.name in failed_term_ips)
-             else lookup('env', 'ROUTER_PRIMARY_GW') | default('172.16.0.1', true) }}
-        backup_gw: >-
-          {{ (backup_term_ips[item.name][0].address
-              | ansible.utils.ipaddr('network/prefix')
-              | ansible.utils.nthhost(1))
-             if (backup_term_ips is defined and item.name in backup_term_ips)
-             else lookup('env', 'ROUTER_BACKUP_GW') | default('172.16.1.1', true) }}
-      loop: >-
-        {{
-          all_routers
-          | selectattr('primary_ip4', 'defined')
-          | selectattr('primary_ip4', 'ne', none)
-          | list
-        }}
-      loop_control:
-        label: "{{ item.name }}"
+    # ── Simulated router operations ──────────────────────────────────────────────
+    # Routers without a real IP in NetBox get simulated debug output here.
+    # Real router config push is handled by pb_router_config.yml (workflow step 2).
 
     - name: "[SIMULATED] Push failover config (no real router IP)"
       ansible.builtin.debug:
@@ -385,47 +355,51 @@
         verbosity: 0
       when: backup.status.value != 'active'
 
+    # ── Pass router targets to next workflow step ──────────────────────────────
+    # AAP propagates set_stats artifacts as extra_vars to subsequent nodes.
+
+    - name: Build router target list for config push
+      ansible.builtin.set_fact:
+        router_targets: >-
+          {{
+            router_targets | default([]) + [{
+              'name': item.name,
+              'ip': item.primary_ip4.address | ansible.utils.ipaddr('address'),
+              'failed_gw': (failed_term_ips[item.name][0].address
+                            | ansible.utils.ipaddr('network/prefix')
+                            | ansible.utils.nthhost(1))
+                           if (failed_term_ips is defined and item.name in failed_term_ips)
+                           else lookup('env', 'ROUTER_PRIMARY_GW') | default('172.16.0.1', true),
+              'backup_gw': (backup_term_ips[item.name][0].address
+                            | ansible.utils.ipaddr('network/prefix')
+                            | ansible.utils.nthhost(1))
+                           if (backup_term_ips is defined and item.name in backup_term_ips)
+                           else lookup('env', 'ROUTER_BACKUP_GW') | default('172.16.1.1', true)
+            }]
+          }}
+      loop: >-
+        {{
+          all_routers
+          | selectattr('primary_ip4', 'defined')
+          | selectattr('primary_ip4', 'ne', none)
+          | list
+        }}
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Pass failover data to next workflow step
+      ansible.builtin.set_stats:
+        data:
+          router_targets: "{{ router_targets | default([]) }}"
+        per_host: false
+
     - name: Failover complete
       ansible.builtin.debug:
         msg: |
           Failover complete for {{ failed_circuit }}
             Primary:  {{ primary.cid }} -> Offline
             Backup:   {{ backup.cid }} ({{ backup.provider.name }}, {{ backup.commit_rate // 1000 }} Mbps)
-            Routers:  config pushed to {{ all_routers | map(attribute='name') | join(', ') }}
-          Report will be generated and deployed by the next workflow step.
+            Routers:  {{ all_routers | map(attribute='name') | join(', ') }}
+            Targets for config push: {{ router_targets | default([]) | map(attribute='name') | join(', ') | default('none (simulated only)') }}
+          Next workflow steps: router config push, then report generation.
         verbosity: 0
-
-# ── Play 2: Push failover routing to real routers ─────────────────────────────
-# Only runs when routers with real IPs were added to failover_routers in Play 1.
-# Non-fatal: SSH/config failures are caught so the workflow continues to Deploy Report.
-
-- name: "Push failover routing to routers — {{ failed_circuit | default('unknown') }}"
-  hosts: failover_routers
-  gather_facts: false
-  ignore_unreachable: true
-
-  tasks:
-    - name: Push failover routing config
-      block:
-        - name: Remove failed route and add backup route
-          cisco.ios.ios_config:
-            lines:
-              - "no ip route 0.0.0.0 0.0.0.0 {{ failed_gw }}"
-              - "ip route 0.0.0.0 0.0.0.0 {{ backup_gw }}"
-            save_when: changed
-
-        - name: Router failover config applied
-          ansible.builtin.debug:
-            msg: >-
-              {{ inventory_hostname }}: failed route ({{ failed_gw }})
-              removed, backup route ({{ backup_gw }}) added
-            verbosity: 0
-
-      rescue:
-        - name: Router config push failed (non-fatal)
-          ansible.builtin.debug:
-            msg: >-
-              WARNING: Could not push config to {{ inventory_hostname }}.
-              Error: {{ ansible_failed_result.msg | default('unknown') }}.
-              Workflow continues to Deploy Report step.
-            verbosity: 0

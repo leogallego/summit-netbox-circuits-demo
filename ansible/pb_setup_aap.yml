@@ -47,7 +47,7 @@
     - vars/netbox_creds.yml
 
   vars:
-    aap_org_name: "SummitCollection"
+    aap_org_name: "Webinar"
     controller_api_base: "{{ lookup('env', 'AAP_URL') }}/api/controller"
     github_repo: "https://github.com/leogallego/summit-netbox-circuits-demo"
     github_branch: "main"

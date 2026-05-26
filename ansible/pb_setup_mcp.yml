@@ -1,0 +1,58 @@
+---
+# pb_setup_mcp.yml
+#
+# Generates .mcp.json for AI MCP integration with AAP.
+# Reads AAP gateway host from env vars and templates the config locally.
+#
+# Usage:
+#   source .env
+#   ./run-playbook.sh ansible/pb_setup_mcp.yml
+
+- name: Generate MCP configuration
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    mcp_aap_host: >-
+      {{ lookup('env', 'MCP_AAP_SERVER') |
+         default(lookup('env', 'AAP_URL') | urlsplit('hostname'), true) }}
+    mcp_aap_port: "{{ lookup('env', 'MCP_AAP_PORT') | default('8448', true) }}"
+    mcp_aap_base_url: "https://{{ mcp_aap_host }}:{{ mcp_aap_port }}"
+    mcp_services:
+      - name: aap-mcp-job-management
+        path: job_management
+      - name: aap-mcp-inventory-management
+        path: inventory_management
+      - name: aap-mcp-system-monitoring
+        path: system_monitoring
+      - name: aap-mcp-user-management
+        path: user_management
+      - name: aap-mcp-security-compliance
+        path: security_compliance
+      - name: aap-mcp-platform-configuration
+        path: platform_configuration
+
+  tasks:
+
+    - name: Validate AAP host is set
+      ansible.builtin.assert:
+        that:
+          - mcp_aap_host | length > 0
+        fail_msg: >-
+          Cannot determine AAP gateway host. Set AAP_URL or MCP_AAP_SERVER
+          in your .env file.
+
+    - name: Generate .mcp.json
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/templates/mcp.json.j2"
+        dest: "{{ playbook_dir }}/../.mcp.json"
+        mode: "0600"
+
+    - name: MCP configuration generated
+      ansible.builtin.debug:
+        msg: >-
+          .mcp.json written — {{ mcp_services | length }} AAP MCP services
+          pointing at {{ mcp_aap_base_url }}.
+          Set MCP_AAP_TOKEN in your .env to authenticate.
+        verbosity: 0

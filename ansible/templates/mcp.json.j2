@@ -1,0 +1,12 @@
+{{ ansible_managed | comment(decoration="// ") }}
+{
+  "mcpServers": {
+{% for service in mcp_services %}
+    "{{ service.name }}": {
+      "type": "http",
+      "url": "{{ mcp_aap_base_url }}/{{ service.path }}/mcp",
+      "headersHelper": "echo '{\"Authorization\": \"Bearer '\"$MCP_AAP_TOKEN\"'\"}'"
+    }{{ "," if not loop.last else "" }}
+{% endfor %}
+  }
+}

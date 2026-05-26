@@ -155,6 +155,7 @@
             NETBOX_URL: "{{ '{{' }} NETBOX_API {{ '}}' }}"
             NETBOX_TOKEN: "{{ '{{' }} NETBOX_TOKEN {{ '}}' }}"
         state: present
+      ignore_errors: true
       tags:
         - credentials
 
@@ -195,6 +196,7 @@
             GITHUB_TOKEN: "{{ '{{' }} GITHUB_TOKEN {{ '}}' }}"
             GITHUB_REPO: "{{ '{{' }} GITHUB_REPO {{ '}}' }}"
         state: present
+      ignore_errors: true
       when: github_token | length > 0
       tags:
         - credentials

@@ -32,13 +32,24 @@ Switch to the **AAP UI** and show the workflow running in real time.
 - Discovers all backup candidates with the `dd` tag present at both sites
 - Selects the best backup by committed bandwidth (10 Gbps primary → 5 Gbps backup)
 - Derives per-router gateways from NetBox: follows circuit → termination → cable → interface → IP, calculates the /30 peer address for each router independently
-- Pushes failover routing config to Cisco routers via `cisco.ios.ios_config` (routers without a management IP in NetBox log a simulated stub instead)
+- Simulates router config for routers without a management IP in NetBox
 - Updates NetBox via `netbox.netbox.netbox_circuit`: primary → `offline`, backup → `active`
+- Passes router targets (name, IP, gateways) to the next workflow step via `set_stats`
 
-**Workflow Step 2 — Deploy Report** (`pb_deploy_report.yml`):
+**Workflow Step 2 — Push Router Config** (`pb_router_config.yml`):
+
+- Receives router targets from the failover step via AAP `set_stats` artifact propagation
+- Builds dynamic inventory from the target list — no NetBox dependency
+- Pushes failover routing config to Cisco routers via `cisco.ios.ios_config`
+- Runs on the legacy-crypto Execution Environment for IOS-XE < 17 compatibility (SHA-1 SSH)
+- Non-fatal: SSH/config failures are caught so the workflow continues to the report step
+- Passes `router_config_applied` status to the report step via `set_stats`
+
+**Workflow Step 3 — Deploy Report** (`pb_deploy_report.yml`):
 
 - Re-queries NetBox for the current circuit state
 - Generates a timestamped HTML incident report with topology diagram, bandwidth impact, per-router gateway config, failover timeline, audit trail, and recommended next steps
+- Shows a warning banner if the router config push failed
 - Deploys the report to GitHub Pages and updates the report index page
 - Each run produces a unique report file — previous reports are preserved and browsable
 
@@ -75,7 +86,7 @@ Run `./reset.sh` or launch the **Reset Demo** job template in AAP to restore all
 - **No hardcoded anything.** Backup circuits, gateways, and route direction are all derived dynamically from NetBox. Add a new circuit and it's automatically a candidate. Add a new site and the seed playbook picks it up.
 - **Per-router gateway derivation.** Each router gets its own gateway from its own /30 interface IP — not a shared hardcoded value. Works correctly regardless of which side of the circuit the router is on.
 - **Bidirectional failover/failback.** Set any circuit offline → automation activates the other and pushes the correct routes. Failback is just another failover in reverse.
-- **Two-step workflow in AAP.** Circuit update and report deployment are separate, auditable steps — visible in Ansible Automation Platform's job history with full logs and timing.
+- **Three-step workflow in AAP.** Circuit update, router config push, and report deployment are separate, auditable steps — visible in Ansible Automation Platform's job history with full logs and timing. Router config runs on a separate Execution Environment with legacy crypto support.
 - **Timestamped incident reports.** Every failover produces a unique report with per-router gateway details, published to GitHub Pages with an auto-generated index.
 - **Visual Explorer updates live.** The map reflects the new topology immediately after Ansible Automation Platform writes back.
 - **MCP servers close the loop.** Claude can query both NetBox (circuit status) and AAP (job execution history) directly — no UI required.
@@ -147,8 +158,9 @@ See [SETUP.md](SETUP.md) for full setup instructions including AAP configuration
 ```
 ansible/
   pb_setup_aap.yml          # Idempotent AAP + EDA + NetBox configuration playbook
-  pb_circuit_failover.yml   # Workflow Step 1: find backup, derive gateways, push config, update NetBox
-  pb_deploy_report.yml      # Workflow Step 2: generate timestamped report, publish to GitHub Pages
+  pb_circuit_failover.yml   # Workflow Step 1: find backup, derive gateways, update NetBox, pass targets
+  pb_router_config.yml      # Workflow Step 2: push failover routing to real routers (legacy-crypto EE)
+  pb_deploy_report.yml      # Workflow Step 3: generate timestamped report, publish to GitHub Pages
   pb_reset_demo.yml         # Reset all dd-tagged circuits to starting state
   pb_seed_netbox.yml        # Seed NetBox with demo data (sites, circuits, interfaces, IPs, cables)
   pb_launch_demo_router.yml # Launch CSR 1000v 16.12 on AWS for router testing

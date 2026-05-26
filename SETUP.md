@@ -54,43 +54,47 @@ AAP 2.6 requires the following resources configured. The `pb_setup_aap.yml` play
 
 ### Automation Controller
 
-All resources are scoped to the `SummitCollection` organization (configurable via `aap_org_name` in `pb_setup_aap.yml`).
+All resources are scoped to the organization configured via `aap_org_name` in `pb_setup_aap.yml` (default: `Webinar`). The table below uses `{org}` as a placeholder.
 
 | Resource | Name | Details |
 |---|---|---|
-| Credential | SummitCollection NetBox Cloud | NetBox credential type — injects `NETBOX_API` + `NETBOX_TOKEN` |
-| Credential | SummitCollection Container Registry | Quay.io registry for pulling the project EE image |
-| Credential | SummitCollection Automation Hub | Galaxy/Automation Hub for certified collections |
-| Credential | SummitCollection Report Server SSH | Machine credential for report server (SSH key, conditional) |
-| Credential | SummitCollection Network Router | Network credential for Cisco router (conditional) |
-| Inventory | SummitCollection Localhost | Localhost + report server hosts |
-| Project | SummitCollection NetBox Circuits Demo | Git source — this repository, synced on launch |
-| Execution Environment | SummitCollection Execution Environment | `quay.io/acme_corp/netbox-summit-2026-ee:v3.22-3` |
-| Job Template | SummitCollection Circuit Failover | Runs `pb_circuit_failover.yml`, accepts `failed_circuit` extra var |
-| Job Template | SummitCollection Deploy Report | Runs `pb_deploy_report.yml`, accepts `failed_circuit` extra var |
-| Job Template | SummitCollection Reset Demo | Runs `pb_reset_demo.yml` |
-| Workflow Template | SummitCollection Circuit Failover Workflow | Step 1: Circuit Failover → (on success) → Step 2: Deploy Report |
+| Credential | {org} NetBox Cloud | NetBox credential type — injects `NETBOX_API` + `NETBOX_TOKEN` |
+| Credential | {org} Container Registry | Quay.io registry for pulling the project EE image |
+| Credential | {org} Automation Hub | Galaxy/Automation Hub for certified collections |
+| Credential | {org} Report Server SSH | Machine credential for report server (SSH key, conditional) |
+| Credential | {org} Network Router | Network credential for Cisco router (conditional) |
+| Inventory | {org} Localhost | Localhost + report server hosts |
+| Project | {org} NetBox Circuits Demo | Git source — this repository, synced on launch |
+| EE | {org} Execution Environment | `quay.io/acme_corp/netbox-summit-2026-ee:v3.22-3` — standard EE |
+| EE | {org} Legacy Crypto EE | `quay.io/acme_corp/netbox-webinar-legacy-crypto-ee:latest` — SHA-1 SSH for IOS-XE < 17 |
+| Job Template | {org} Circuit Failover | Step 1: runs `pb_circuit_failover.yml` (standard EE) |
+| Job Template | {org} Push Router Config | Step 2: runs `pb_router_config.yml` (legacy-crypto EE) |
+| Job Template | {org} Deploy Report | Step 3: runs `pb_deploy_report.yml` (standard EE) |
+| Job Template | {org} Reset Demo | Runs `pb_reset_demo.yml` |
+| Workflow | {org} Circuit Failover Workflow | Failover →(success)→ Router Config →(always)→ Deploy Report |
 
-### Execution Environment
+### Execution Environments
 
-The project EE (`quay.io/acme_corp/netbox-summit-2026-ee:v3.22-3`) includes all required collections and Python dependencies:
+**Standard EE** (`quay.io/acme_corp/netbox-summit-2026-ee:v3.22-3`) includes all required collections and Python dependencies:
 - `netbox.netbox` >= 3.22.0, `ansible.controller`, `ansible.eda`
 - `cisco.ios`, `ansible.netcommon`, `ansible.utils`
 - `pynetbox` >= 7.6.0
 
-The same EE is used for both local runs (via `ansible-navigator.yml`) and AAP job templates.
+Used by the failover, report, and reset job templates, and for local runs via `ansible-navigator.yml`.
+
+**Legacy Crypto EE** (`quay.io/acme_corp/netbox-webinar-legacy-crypto-ee:latest`) adds SHA-1 crypto policy overrides for connecting to IOS-XE < 17 routers (e.g., CSR 1000v 16.12) that only support SHA-1 key exchange. Built on `ee-supported-rhel9:1.0` with `cisco.ios` and `ansible.netcommon`. Used only by the Push Router Config job template. Source: [ee-builds](https://github.com/ansible-tmm/ee-builds/tree/main/netbox-webinar-legacy-crypto-ee).
 
 ### Event-Driven Ansible
 
 | Resource | Name | Details |
 |---|---|---|
-| Decision Environment | SummitCollection Decision Environment | `registry.redhat.io/ansible-automation-platform-26/de-supported-rhel9:latest` (pull policy: missing) |
-| Credential | SummitCollection Red Hat Registry | Container Registry credential for `registry.redhat.io` (optional — only needed if DE image not present) |
-| Project | SummitCollection EDA Project | Same Git repository — EDA discovers `rulebooks/rulebook.yml` |
-| Credential | SummitCollection EDA AAP Controller | EDA credential for `run_workflow_template` — host must include `/api/controller` path for AAP 2.6 gateway |
-| Credential | SummitCollection EDA Webhook Token | Token Event Stream credential for webhook authentication |
-| Event Stream | SummitCollection EDA Circuit Events | HTTP endpoint that receives NetBox circuit change webhooks |
-| Rulebook Activation | SummitCollection EDA Circuit Failover | Runs `rulebook.yml` with the DE, listens for NetBox events |
+| Decision Environment | {org} Decision Environment | `registry.redhat.io/ansible-automation-platform-26/de-supported-rhel9:latest` (pull policy: missing) |
+| Credential | {org} Red Hat Registry | Container Registry credential for `registry.redhat.io` (optional — only needed if DE image not present) |
+| Project | {org} EDA Project | Same Git repository — EDA discovers `rulebooks/rulebook.yml` |
+| Credential | {org} EDA AAP Controller | EDA credential for `run_workflow_template` — host must include `/api/controller` path for AAP 2.6 gateway |
+| Credential | {org} EDA Webhook Token | Token Event Stream credential for webhook authentication |
+| Event Stream | {org} EDA Circuit Events | HTTP endpoint that receives NetBox circuit change webhooks |
+| Rulebook Activation | {org} EDA Circuit Failover | Runs `rulebook.yml` with the DE, listens for NetBox events |
 
 The EDA rulebook activation receives webhooks from NetBox via the event stream, evaluates the circuit status condition, and launches the Circuit Failover Workflow on Automation Controller.
 

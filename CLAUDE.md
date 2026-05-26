@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Red Hat Summit 2026 demo: automated WAN circuit failover driven by NetBox as the Source of Truth and Ansible Automation Platform 2.6 as the automation engine. When a circuit fails, a NetBox event rule fires a webhook to Event-Driven Ansible, which launches a two-step workflow on Automation Controller — failover (discover backup, update NetBox via `netbox.netbox` collection) then report (generate and deploy an HTML incident report).
+Red Hat Summit 2026 demo: automated WAN circuit failover driven by NetBox as the Source of Truth and Ansible Automation Platform 2.6 as the automation engine. When a circuit fails, a NetBox event rule fires a webhook to Event-Driven Ansible, which launches a three-step workflow on Automation Controller — failover (discover backup, update NetBox), router config push (apply routing changes via legacy-crypto EE), then report (generate and deploy an HTML incident report).
 
 ## Architecture
 
@@ -13,8 +13,9 @@ NetBox Copilot → PATCH circuit to offline
   → NetBox event rule → webhook to Event-Driven Ansible
   → EDA rulebook evaluates condition → launches workflow on Automation Controller
   → AAP "Circuit Failover Workflow":
-      Step 1: pb_circuit_failover.yml (query NetBox via nb_lookup, discover backup, push router config, update NetBox via netbox_circuit)
-      Step 2: pb_deploy_report.yml (re-query state, render Jinja2 HTML report, publish to GitHub Pages and/or deploy to report server via SSH)
+      Step 1: pb_circuit_failover.yml (query NetBox, discover backup, update NetBox, pass router targets via set_stats)
+      Step 2: pb_router_config.yml (push failover routing to real routers via cisco.ios — legacy-crypto EE)
+      Step 3: pb_deploy_report.yml (re-query state, render Jinja2 HTML report, publish to GitHub Pages)
   → Visual Explorer updates live, report served on HTTPS
 ```
 
@@ -63,7 +64,8 @@ Infrastructure variables (`REPORT_SERVER_HOST`, `ROUTER_IP`, etc.) are written t
 
 - **Event-Driven Ansible as the event router**: NetBox event rule fires webhook to EDA, which evaluates the rulebook condition and launches the workflow on Automation Controller. Requires AAP 2.6 with `registry.redhat.io/ansible-automation-platform-26/de-supported-rhel9` Decision Environment.
 - **netbox.netbox collection**: All NetBox interactions use `nb_lookup` (reads) and `netbox_circuit` (status updates). No raw `ansible.builtin.uri` API calls.
-- **Simulated router operations**: Router config pushes are `debug` tasks, not real device interactions. The demo has no actual network devices.
+- **Split router config playbook**: Router config push runs as a separate workflow step (`pb_router_config.yml`) on the legacy-crypto EE. Receives router targets via `set_stats` from the failover step — no NetBox dependency. Routers without a management IP in NetBox get simulated debug output in the failover step instead.
+- **Two Execution Environments**: Standard EE for NetBox queries and reports. Legacy-crypto EE (`quay.io/acme_corp/netbox-webinar-legacy-crypto-ee:latest`) with SHA-1 crypto policy overrides for IOS-XE < 17 routers. C8000v (IOS-XE 17.x) works with either EE.
 - **Report server**: EC2 instance provisioned by Terraform, nginx with HTTPS, SSH on port 2222.
 - **GitHub Pages as default report target**: The HTML failover report is published to the `gh-pages` branch root via the GitHub Contents API (`ansible.builtin.uri`). GitHub Pages serves it from the `gh-pages` branch. This keeps report artifacts off `main` so report deploys don't cause push conflicts. The SSH/EC2 report server is kept as a conditional fallback.
 - **NetBox circuit tag `dd`**: All demo-relevant circuits are tagged `dd` in NetBox. This tag scopes all queries — backup discovery, reset, and report generation only touch `dd`-tagged circuits.

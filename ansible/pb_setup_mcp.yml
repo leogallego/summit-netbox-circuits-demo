@@ -1,12 +1,21 @@
 ---
 # pb_setup_mcp.yml
 #
-# Generates .mcp.json for AI MCP integration with AAP.
-# Reads AAP gateway host from env vars and templates the config locally.
+# Generates .mcp.json for AI MCP integration with AAP and NetBox.
+# Pulls the NetBox MCP server container image and templates the config locally.
 #
 # Usage:
 #   source .env
 #   ./run-playbook.sh ansible/pb_setup_mcp.yml
+#
+# Tags:
+#   netbox  — pull NetBox MCP server container image
+#   config  — generate .mcp.json only (no image pull)
+#
+# Examples:
+#   ./run-playbook.sh ansible/pb_setup_mcp.yml                  # full setup
+#   ./run-playbook.sh ansible/pb_setup_mcp.yml --tags config    # regenerate config only
+#   ./run-playbook.sh ansible/pb_setup_mcp.yml --tags netbox    # pull image only
 
 - name: Generate MCP configuration
   hosts: localhost
@@ -14,11 +23,16 @@
   gather_facts: false
 
   vars:
+    container_runtime: "{{ lookup('env', 'MCP_CONTAINER_RUNTIME') | default('podman', true) }}"
     mcp_aap_host: >-
       {{ lookup('env', 'MCP_AAP_SERVER') |
          default(lookup('env', 'AAP_URL') | urlsplit('hostname'), true) }}
     mcp_aap_port: "{{ lookup('env', 'MCP_AAP_PORT') | default('8448', true) }}"
     mcp_aap_base_url: "https://{{ mcp_aap_host }}:{{ mcp_aap_port }}"
+    netbox_url: "{{ lookup('env', 'NETBOX_URL') }}"
+    netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
+    netbox_verify_ssl: "{{ lookup('env', 'NETBOX_VERIFY_SSL') | default('true', true) | bool }}"
+    netbox_mcp_image: "netboxlabs/netbox-mcp-server:1.2.0"
     mcp_services:
       - name: aap-mcp-job-management
         path: job_management
@@ -42,17 +56,32 @@
         fail_msg: >-
           Cannot determine AAP gateway host. Set AAP_URL or MCP_AAP_SERVER
           in your .env file.
+      tags:
+        - always
+
+    - name: Pull NetBox MCP server image
+      ansible.builtin.command:
+        cmd: "{{ container_runtime }} pull {{ netbox_mcp_image }}"
+      register: netbox_mcp_pull
+      changed_when: "'Pulling' in netbox_mcp_pull.stdout or 'Downloading' in netbox_mcp_pull.stdout"
+      tags:
+        - netbox
 
     - name: Generate .mcp.json
       ansible.builtin.template:
         src: "{{ playbook_dir }}/templates/mcp.json.j2"
         dest: "{{ playbook_dir }}/../.mcp.json"
         mode: "0600"
+      tags:
+        - config
 
     - name: MCP configuration generated
       ansible.builtin.debug:
         msg: >-
           .mcp.json written — {{ mcp_services | length }} AAP MCP services
-          pointing at {{ mcp_aap_base_url }}.
+          pointing at {{ mcp_aap_base_url }}, plus NetBox
+          ({{ netbox_mcp_image }} via {{ container_runtime }}).
           Set MCP_AAP_TOKEN in your .env to authenticate.
         verbosity: 0
+      tags:
+        - config

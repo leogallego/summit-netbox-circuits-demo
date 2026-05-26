@@ -6,7 +6,23 @@
       "type": "http",
       "url": "{{ mcp_aap_base_url }}/{{ service.path }}/mcp",
       "headersHelper": "echo '{\"Authorization\": \"Bearer '\"$MCP_AAP_TOKEN\"'\"}'"
-    }{{ "," if not loop.last else "" }}
+    },
 {% endfor %}
+    "netbox": {
+      "command": "{{ container_runtime }}",
+      "args": [
+        "run", "--rm", "-i",
+        "-e", "NETBOX_URL",
+        "-e", "NETBOX_TOKEN",
+{% if not netbox_verify_ssl %}
+        "-e", "VERIFY_SSL=false",
+{% endif %}
+        "{{ netbox_mcp_image }}"
+      ],
+      "env": {
+        "NETBOX_URL": "{{ netbox_url }}",
+        "NETBOX_TOKEN": "{{ netbox_token }}"
+      }
+    }
   }
 }

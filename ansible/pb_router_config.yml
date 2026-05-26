@@ -7,289 +7,73 @@
 # pb_circuit_failover.yml has updated NetBox, and before
 # pb_deploy_report.yml generates the incident report.
 #
-# Self-contained: re-queries NetBox for the failed circuit, discovers
-# sites and routers, and derives gateway IPs from cable wiring. Can be
-# tested independently without the workflow.
+# Receives router targets via set_stats artifacts from the failover
+# step (AAP propagates these as extra_vars). No NetBox dependency —
+# this playbook runs on the legacy-crypto EE which only needs
+# cisco.ios and ansible.netcommon.
 #
 # Uses set_stats to pass router_config_applied (bool) and
-# router_config_error to the report step. The report template can
-# render a warning banner when router config was not applied.
+# router_config_error to the report step.
 #
-# Requires the legacy-crypto EE when targeting IOS-XE < 17 routers
-# (SHA-1 SSH). For IOS-XE 17+ or simulated routers, the standard EE
-# works fine.
+# Input variables (from workflow extra_vars / set_stats):
+#   failed_circuit  — CID of the failed circuit (passed through workflow)
+#   router_targets  — list of dicts from failover step:
+#     [{ name, ip, failed_gw, backup_gw }, ...]
 #
-# Usage (manual):
-#   ./run-playbook.sh ansible/pb_router_config.yml \
-#     --extra-vars "failed_circuit=IPLC-GB-AT-PRI"
+# Usage (standalone testing):
+#   ansible-playbook ansible/pb_router_config.yml \
+#     -e failed_circuit=IPLC-GB-AT-PRI \
+#     -e '{"router_targets": [{"name": "rtr1", "ip": "10.0.0.1", "failed_gw": "172.16.0.1", "backup_gw": "172.16.1.1"}]}'
 
 - name: "Push failover routing — {{ failed_circuit }}"
   hosts: localhost
   connection: local
   gather_facts: false
 
-  vars_files:
-    - vars/netbox_creds.yml
-
   tasks:
-    # ── Query failed circuit ───────────────────────────────────────────────────
-
-    - name: Query failed circuit from NetBox
-      ansible.builtin.set_fact:
-        failed_result: >-
-          {{ query('netbox.netbox.nb_lookup', 'circuits',
-                   api_endpoint=netbox_url,
-                   token=netbox_token,
-                   api_filter='cid=' ~ failed_circuit,
-                   validate_certs=netbox_validate_certs,
-                   raw_data=true) }}
-
-    - name: Validate circuit exists
-      ansible.builtin.assert:
-        that: failed_result | length > 0
-        fail_msg: "Circuit {{ failed_circuit }} not found in NetBox"
-
-    - name: Set failed circuit facts
-      ansible.builtin.set_fact:
-        primary: "{{ failed_result | first }}"
-
-    # ── Discover sites from terminations ──────────────────────────────────────
-
-    - name: Query failed circuit terminations
-      ansible.builtin.set_fact:
-        primary_terms: >-
-          {{ query('netbox.netbox.nb_lookup', 'circuit-terminations',
-                   api_endpoint=netbox_url,
-                   token=netbox_token,
-                   api_filter='circuit_id=' ~ primary.id,
-                   validate_certs=netbox_validate_certs,
-                   raw_data=true) }}
-
-    - name: Assert terminations exist for both sides
-      ansible.builtin.assert:
-        that:
-          - primary_terms | selectattr('term_side', 'eq', 'A') | list | length > 0
-          - primary_terms | selectattr('term_side', 'eq', 'Z') | list | length > 0
-        fail_msg: >-
-          Circuit {{ failed_circuit }} is missing A/Z terminations in NetBox.
-
-    - name: Set A-side and Z-side sites
-      ansible.builtin.set_fact:
-        a_side_site: "{{ (primary_terms | selectattr('term_side', 'eq', 'A') | first).termination }}"
-        z_side_site: "{{ (primary_terms | selectattr('term_side', 'eq', 'Z') | first).termination }}"
-
-    # ── Find the active backup circuit ────────────────────────────────────────
-
-    - name: Query dd-tagged circuits at A-side site
-      ansible.builtin.set_fact:
-        a_site_circuits: >-
-          {{ query('netbox.netbox.nb_lookup', 'circuits',
-                   api_endpoint=netbox_url,
-                   token=netbox_token,
-                   api_filter='site_id=' ~ a_side_site.id ~ ' tag=dd',
-                   validate_certs=netbox_validate_certs,
-                   raw_data=true) }}
-
-    - name: Query dd-tagged circuits at Z-side site
-      ansible.builtin.set_fact:
-        z_site_circuits: >-
-          {{ query('netbox.netbox.nb_lookup', 'circuits',
-                   api_endpoint=netbox_url,
-                   token=netbox_token,
-                   api_filter='site_id=' ~ z_side_site.id ~ ' tag=dd',
-                   validate_certs=netbox_validate_certs,
-                   raw_data=true) }}
-
-    - name: Find backup circuit (active, present at both sites, not the failed one)
-      ansible.builtin.set_fact:
-        z_circuit_ids: "{{ z_site_circuits | map(attribute='id') | list }}"
-
-    - name: Build backup candidate list
-      ansible.builtin.set_fact:
-        backup_candidates: >-
-          {{
-            a_site_circuits
-            | selectattr('id', 'in', z_circuit_ids)
-            | rejectattr('id', 'eq', primary.id)
-            | selectattr('status.value', 'eq', 'active')
-            | list
-          }}
-
-    - name: Skip if no active backup found
-      when: backup_candidates | length == 0
+    - name: Skip if no router targets provided
+      when: router_targets | default([]) | length == 0
       block:
-        - name: No active backup — nothing to route to
+        - name: No router targets — skipping config push
           ansible.builtin.debug:
             msg: >-
-              No active backup circuit found between
-              {{ a_side_site.display }} and {{ z_side_site.display }}.
-              Skipping router config push.
+              No router targets received from failover step.
+              This is normal when all routers are simulated (no real IPs in NetBox).
             verbosity: 0
 
-        - name: Flag router config as skipped
+        - name: Flag router config as skipped (no targets)
           ansible.builtin.set_stats:
             data:
               router_config_applied: false
-              router_config_error: >-
-                No active backup circuit found between
-                {{ a_side_site.display }} and {{ z_side_site.display }}
+              router_config_error: "No router targets provided — simulated routers only"
             per_host: false
 
-        - name: End play — no backup to route to
+        - name: End play — no targets
           ansible.builtin.meta: end_play
 
-    - name: Select backup (highest commit rate)
-      ansible.builtin.set_fact:
-        backup: "{{ backup_candidates | sort(attribute='commit_rate', reverse=true) | first }}"
+    # ── Build dynamic inventory from set_stats data ──────────────────────────
 
-    # ── Query backup terminations ──────────────────────────────────────────────
-
-    - name: Query backup circuit terminations
-      ansible.builtin.set_fact:
-        backup_terms: >-
-          {{ query('netbox.netbox.nb_lookup', 'circuit-terminations',
-                   api_endpoint=netbox_url,
-                   token=netbox_token,
-                   api_filter='circuit_id=' ~ backup.id,
-                   validate_certs=netbox_validate_certs,
-                   raw_data=true) }}
-
-    # ── Derive gateway IPs from cable wiring ──────────────────────────────────
-
-    - name: Check if circuits have cable wiring
-      ansible.builtin.set_fact:
-        circuits_have_cables: >-
-          {{ (primary_terms | map(attribute='link_peers', default=[]) | select | list | length > 0)
-             and (backup_terms | map(attribute='link_peers', default=[]) | select | list | length > 0) }}
-
-    - name: Query IPs for cabled interfaces on failed circuit
-      ansible.builtin.set_fact:
-        failed_term_ips: >-
-          {{ failed_term_ips | default({}) | combine({
-               item.link_peers[0].device.name:
-                 query('netbox.netbox.nb_lookup', 'ip-addresses',
-                       api_endpoint=netbox_url,
-                       token=netbox_token,
-                       api_filter='interface_id=' ~ item.link_peers[0].id,
-                       validate_certs=netbox_validate_certs,
-                       raw_data=true)
-             }) }}
-      loop: "{{ primary_terms | selectattr('link_peers', 'defined') | list }}"
-      loop_control:
-        label: "{{ item.link_peers[0].device.name | default('uncabled') }}"
-      when:
-        - circuits_have_cables | bool
-        - item.link_peers | default([]) | length > 0
-
-    - name: Query IPs for cabled interfaces on backup circuit
-      ansible.builtin.set_fact:
-        backup_term_ips: >-
-          {{ backup_term_ips | default({}) | combine({
-               item.link_peers[0].device.name:
-                 query('netbox.netbox.nb_lookup', 'ip-addresses',
-                       api_endpoint=netbox_url,
-                       token=netbox_token,
-                       api_filter='interface_id=' ~ item.link_peers[0].id,
-                       validate_certs=netbox_validate_certs,
-                       raw_data=true)
-             }) }}
-      loop: "{{ backup_terms | selectattr('link_peers', 'defined') | list }}"
-      loop_control:
-        label: "{{ item.link_peers[0].device.name | default('uncabled') }}"
-      when:
-        - circuits_have_cables | bool
-        - item.link_peers | default([]) | length > 0
-
-    # ── Query routers at both sites ───────────────────────────────────────────
-
-    - name: Query routers at A-side site
-      ansible.builtin.set_fact:
-        a_side_routers: >-
-          {{ query('netbox.netbox.nb_lookup', 'devices',
-                   api_endpoint=netbox_url,
-                   token=netbox_token,
-                   api_filter='site_id=' ~ a_side_site.id ~ ' role=router tag=dd',
-                   validate_certs=netbox_validate_certs,
-                   raw_data=true) }}
-
-    - name: Query routers at Z-side site
-      ansible.builtin.set_fact:
-        z_side_routers: >-
-          {{ query('netbox.netbox.nb_lookup', 'devices',
-                   api_endpoint=netbox_url,
-                   token=netbox_token,
-                   api_filter='site_id=' ~ z_side_site.id ~ ' role=router tag=dd',
-                   validate_certs=netbox_validate_certs,
-                   raw_data=true) }}
-
-    - name: Combine router list
-      ansible.builtin.set_fact:
-        all_routers: "{{ a_side_routers + z_side_routers }}"
-
-    - name: Filter routers with real IPs
-      ansible.builtin.set_fact:
-        routers_with_ip: >-
-          {{
-            all_routers
-            | selectattr('primary_ip4', 'defined')
-            | selectattr('primary_ip4', 'ne', none)
-            | list
-          }}
-
-    - name: Skip if no routers with real IPs
-      when: routers_with_ip | length == 0
-      block:
-        - name: No routers with IPs — skipping config push
-          ansible.builtin.debug:
-            msg: >-
-              No routers with primary_ip4 found at
-              {{ a_side_site.display }} or {{ z_side_site.display }}.
-              Router config push skipped (simulated routers only).
-            verbosity: 0
-
-        - name: Flag router config as skipped (no real routers)
-          ansible.builtin.set_stats:
-            data:
-              router_config_applied: false
-              router_config_error: "No routers with real IPs found — simulated routers only"
-            per_host: false
-
-        - name: End play — no real routers
-          ansible.builtin.meta: end_play
-
-    # ── Build dynamic inventory ───────────────────────────────────────────────
-
-    - name: Add routers with real IPs to dynamic inventory
+    - name: Add routers to dynamic inventory
       ansible.builtin.add_host:
         name: "{{ item.name }}"
         groups: failover_routers
-        ansible_host: "{{ item.primary_ip4.address | ansible.utils.ipaddr('address') }}"
+        ansible_host: "{{ item.ip }}"
         ansible_user: "{{ lookup('env', 'ROUTER_USERNAME') | default('iosuser', true) }}"
         ansible_password: "{{ lookup('env', 'ROUTER_PASSWORD') | default(omit, true) }}"
         ansible_network_os: cisco.ios.ios
         ansible_connection: ansible.netcommon.network_cli
         ansible_network_cli_ssh_type: paramiko
-        failed_gw: >-
-          {{ (failed_term_ips[item.name][0].address
-              | ansible.utils.ipaddr('network/prefix')
-              | ansible.utils.nthhost(1))
-             if (failed_term_ips is defined and item.name in failed_term_ips)
-             else lookup('env', 'ROUTER_PRIMARY_GW') | default('172.16.0.1', true) }}
-        backup_gw: >-
-          {{ (backup_term_ips[item.name][0].address
-              | ansible.utils.ipaddr('network/prefix')
-              | ansible.utils.nthhost(1))
-             if (backup_term_ips is defined and item.name in backup_term_ips)
-             else lookup('env', 'ROUTER_BACKUP_GW') | default('172.16.1.1', true) }}
-      loop: "{{ routers_with_ip }}"
+        failed_gw: "{{ item.failed_gw }}"
+        backup_gw: "{{ item.backup_gw }}"
+      loop: "{{ router_targets }}"
       loop_control:
         label: "{{ item.name }}"
 
     - name: Show router targets
       ansible.builtin.debug:
         msg: >-
-          Pushing failover config to {{ routers_with_ip | length }} router(s):
-          {{ routers_with_ip | map(attribute='name') | join(', ') }}
+          Pushing failover config to {{ router_targets | length }} router(s):
+          {{ router_targets | map(attribute='name') | join(', ') }}
         verbosity: 0
 
 # ── Play 2: Push failover routing to real routers ─────────────────────────────

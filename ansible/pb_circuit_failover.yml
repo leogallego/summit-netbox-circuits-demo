@@ -355,6 +355,44 @@
         verbosity: 0
       when: backup.status.value != 'active'
 
+    # ── Pass router targets to next workflow step ──────────────────────────────
+    # AAP propagates set_stats artifacts as extra_vars to subsequent nodes.
+
+    - name: Build router target list for config push
+      ansible.builtin.set_fact:
+        router_targets: >-
+          {{
+            router_targets | default([]) + [{
+              'name': item.name,
+              'ip': item.primary_ip4.address | ansible.utils.ipaddr('address'),
+              'failed_gw': (failed_term_ips[item.name][0].address
+                            | ansible.utils.ipaddr('network/prefix')
+                            | ansible.utils.nthhost(1))
+                           if (failed_term_ips is defined and item.name in failed_term_ips)
+                           else lookup('env', 'ROUTER_PRIMARY_GW') | default('172.16.0.1', true),
+              'backup_gw': (backup_term_ips[item.name][0].address
+                            | ansible.utils.ipaddr('network/prefix')
+                            | ansible.utils.nthhost(1))
+                           if (backup_term_ips is defined and item.name in backup_term_ips)
+                           else lookup('env', 'ROUTER_BACKUP_GW') | default('172.16.1.1', true)
+            }]
+          }}
+      loop: >-
+        {{
+          all_routers
+          | selectattr('primary_ip4', 'defined')
+          | selectattr('primary_ip4', 'ne', none)
+          | list
+        }}
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Pass failover data to next workflow step
+      ansible.builtin.set_stats:
+        data:
+          router_targets: "{{ router_targets | default([]) }}"
+        per_host: false
+
     - name: Failover complete
       ansible.builtin.debug:
         msg: |
@@ -362,5 +400,6 @@
             Primary:  {{ primary.cid }} -> Offline
             Backup:   {{ backup.cid }} ({{ backup.provider.name }}, {{ backup.commit_rate // 1000 }} Mbps)
             Routers:  {{ all_routers | map(attribute='name') | join(', ') }}
+            Targets for config push: {{ router_targets | default([]) | map(attribute='name') | join(', ') | default('none (simulated only)') }}
           Next workflow steps: router config push, then report generation.
         verbosity: 0

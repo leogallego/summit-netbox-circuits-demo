@@ -341,10 +341,9 @@
         execution_environment: "{{ ee_legacy_name }}"
         job_type: run
         ask_variables_on_launch: true
-        credentials:
-          - "{{ netbox_cred_name }}"
         description: >-
           Step 2: Push failover routing config to real routers.
+          Receives router targets via set_stats from failover step.
           Uses legacy-crypto EE for IOS-XE < 17 (SHA-1 SSH).
         state: present
       tags:
@@ -834,7 +833,6 @@
             organization: "{{ aap_org_name }}"
             execution_environment: "{{ ee_legacy_name }}"
             credentials:
-              - "{{ netbox_cred_name }}"
               - "{{ router_cred_name }}"
             state: present
 

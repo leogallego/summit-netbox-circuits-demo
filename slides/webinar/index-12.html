@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Real-Time NetOps | Red Hat + NetBox Labs Webinar</title>
+
+  <link rel="stylesheet" href="vendor/reveal.js/reset.css" />
+  <link rel="stylesheet" href="vendor/reveal.js/reveal.css" />
+  <link rel="stylesheet" href="vendor/reveal.js/plugin/monokai.css" />
+  <link rel="stylesheet" href="theme.css" />
+</head>
+<body>
+
+<div class="reveal">
+<div class="slides">
+
+  <!-- ============================================================
+       SLIDE 01 — Title
+       ============================================================ -->
+  <section class="slide-title">
+
+    <p class="section-label">Red Hat + NetBox Labs &middot; Webinar</p>
+    <h1>Real-Time NetOps</h1>
+    <p class="subtitle">Ansible Automation Platform meets NetBox as your network source of truth</p>
+    <div class="speakers">
+      <p><strong>Leonardo Gallego</strong> &middot; Sr. Technical Advocate, Ansible, Red Hat</p>
+      <p><strong>Matt York</strong> &middot; Solutions Engineer, NetBox Labs</p>
+    </div>
+
+    <aside class="notes">
+      Welcome everyone. Today we're showing how NetBox and Ansible Automation Platform work together to automate WAN circuit failover — from detection to remediation to a published incident report, all in under 60 seconds. We'll run it live, and then show how an operator investigates the incident the next morning using MCP.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 02 — NSoT + NetBox
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Context</p>
+    <h2>Network Source of Truth &mdash; NetBox</h2>
+    <div class="two-col">
+      <div class="col">
+        <h3>What is a Network SoT?</h3>
+        <ul>
+          <li>Defines the <strong>intended state</strong> of the network as <strong>structured data</strong></li>
+          <li>A single consistent data set &mdash; not spreadsheets and Visio diagrams</li>
+          <li>The authoritative reference that <strong>drives network automation</strong></li>
+          <li>Not a static CMDB &mdash; an <strong>active platform</strong> with APIs, webhooks, and event streams</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3>Why NetBox?</h3>
+        <ul>
+          <li><strong>Comprehensive data model</strong> &mdash; from ASNs to VPNs and everything in between</li>
+          <li><strong>API &amp; integration first</strong> &mdash; REST, GraphQL, Event Streams, Webhooks</li>
+          <li><strong>Massive extensibility</strong> &mdash; Plugins, Device Types, Custom Scripts &amp; Fields</li>
+          <li><strong>15K+</strong> GitHub stars &middot; <strong>1000s</strong> of companies in production</li>
+        </ul>
+      </div>
+    </div>
+
+    <aside class="notes">
+      A network source of truth models your intended network state as structured, API-accessible data. NetBox is the most popular implementation — 15,000 GitHub stars, thousands of companies in production. The key for today: when something changes in NetBox, it can notify external systems immediately via webhooks. That's the trigger for everything you're about to see.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 03 — Joint Solution
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Joint Solution</p>
+    <h2>Red Hat + NetBox Labs</h2>
+    <div class="platform-cards">
+      <div class="platform-card nb">
+        <h3>NetBox Cloud</h3>
+        <p>Source of truth for network infrastructure.</p>
+        <p>Every circuit, device, site, and connection modeled as structured, API-first data.</p>
+        <p>Not a static CMDB &mdash; an active platform that drives automation.</p>
+      </div>
+      <div class="platform-card rh">
+        <h3>Ansible Automation Platform</h3>
+        <p>Automation Controller runs workflows with full RBAC, logging, and credential management.</p>
+        <p>Execution Environments guarantee consistency between dev and prod.</p>
+      </div>
+      <div class="platform-card eda">
+        <h3>Event-Driven Ansible</h3>
+        <p>Listens for events &mdash; webhooks, logs, alerts.</p>
+        <p>Evaluates rulebook conditions and triggers automation with zero human delay.</p>
+        <p>The bridge between "something changed" and "do something about it."</p>
+      </div>
+    </div>
+
+    <aside class="notes">
+      Three components. NetBox is the source of truth — it knows what your network looks like. Ansible Automation Platform is the execution engine — it does the work. Event-Driven Ansible is the glue — it listens for changes in NetBox and triggers the right automation immediately. Let me show you why this matters with a customer story.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 04 — Customer Story
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">The Problem</p>
+    <h2>A Customer Story</h2>
+    <div class="quote-block">
+      <div class="quote-text">"Our intercontinental IPLC link between Bristol and Atlanta went down."</div>
+      <div class="quote-detail">We had a secondary link available. But it took our team 45 minutes to find it, identify which routers were affected, and manually re-configure the failover path.</div>
+      <div class="quote-impact">In those 45 minutes, we lost hundreds of thousands of dollars.</div>
+    </div>
+    <div class="steps" style="margin-top: 1em;">
+      <div class="step-box nb"><div class="step-num">1</div><div class="step-title">Detect and disable</div></div>
+      <div class="step-box rh"><div class="step-num">2</div><div class="step-title">Failover automatically</div></div>
+      <div class="step-box gold"><div class="step-num">3</div><div class="step-title">Document everything</div></div>
+    </div>
+
+    <aside class="notes">
+      A real problem. IPLC link goes down. There's a backup — but finding it, figuring out which routers are affected, and reconfiguring takes 45 minutes. Spreadsheets, SSH, tribal knowledge. Our platform solves this in three steps: detect, failover, document. Let's look at why 45 minutes.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 05 — Why 45 Minutes
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">The Problem</p>
+    <h2>Why Did It Take 45 Minutes?</h2>
+    <div class="timeline">
+      <div class="event fragment"><span class="time">0:00</span> <span class="desc">Alert fires. Engineers are paged.</span></div>
+      <div class="event fragment"><span class="time">0:05</span> <span class="desc">Spreadsheets and old Visio diagrams to find the secondary circuit.</span></div>
+      <div class="event fragment"><span class="time">0:15</span> <span class="desc">Secondary found &mdash; but which routers does it use?</span></div>
+      <div class="event fragment"><span class="time">0:22</span> <span class="desc">Cross-reference IPAM, check logs, ask someone who "knows the network."</span></div>
+      <div class="event fragment"><span class="time">0:30</span> <span class="desc">SSH into Bristol router. Find the interface. Apply config.</span></div>
+      <div class="event fragment"><span class="time">0:37</span> <span class="desc">SSH into Atlanta router. Repeat.</span></div>
+      <div class="event fragment"><span class="time">0:43</span> <span class="desc">Test connectivity. Something is wrong. Roll back. Try again.</span></div>
+      <div class="event green fragment"><span class="time">0:45</span> <span class="desc">Traffic restored. Documentation? That happened the next day. Maybe.</span></div>
+    </div>
+
+    <aside class="notes">
+      Every step is a human bottleneck. Finding the backup, identifying routers, SSHing in, applying config — all manual, all sequential, all error-prone. And the documentation? It usually never happens. Now let me show you how we automate all of this.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 06 — Architecture + EDA Code (merged)
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">The Solution</p>
+    <h2>Automated Failover Architecture</h2>
+    <div class="flow">
+      <div class="step nb">
+        <span class="step-label">NetBox</span>
+        <small>Circuit &rarr; offline</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step gold">
+        <span class="step-label">EDA</span>
+        <small>Webhook &rarr; rulebook</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step">
+        <span class="step-label">Step 1: Failover</span>
+        <small>Discover backup, update SoT</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step">
+        <span class="step-label">Step 2: Config</span>
+        <small>Push routing via cisco.ios</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step green">
+        <span class="step-label">Step 3: Report</span>
+        <small>HTML &rarr; GitHub Pages</small>
+      </div>
+    </div>
+    <div class="two-col" style="margin-top: 0.8em;">
+      <div class="col" style="font-size: 0.65em; color: var(--rh-gray);">
+        <p><strong>The EDA rulebook is 8 lines of logic:</strong> listen for NetBox webhook, check if circuit went offline, launch the workflow. The circuit ID flows straight from the NetBox payload into the workflow as an extra variable.</p>
+      </div>
+      <div class="col" style="font-size: 0.65em; color: var(--rh-gray);">
+        <p><strong>Backup discovery is dynamic:</strong> all circuits tagged <code>dd</code> present at both sites are candidates, selected by highest committed bandwidth. No hardcoded backup mappings.</p>
+      </div>
+    </div>
+
+    <aside class="notes">
+      Here's the automated version. Circuit goes offline in NetBox, webhook fires to EDA, EDA launches a three-step workflow. Step one discovers the backup dynamically from NetBox — no hardcoded mappings. Step two pushes router config. Step three generates and publishes the report. The EDA rulebook that connects NetBox to the workflow? Eight lines of YAML. The backup discovery logic queries all circuits at both sites, excludes the failed one, and picks the best by bandwidth. Add a new circuit to NetBox tomorrow and it's automatically discovered. Let's watch it run.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 07 — Demo Divider
+       ============================================================ -->
+  <section class="slide-divider">
+
+    <h2>Live Demo</h2>
+    <p class="divider-subtitle">45 minutes &rarr; 60 seconds</p>
+
+    <aside class="notes">
+      Let's see it. We're taking a circuit offline in NetBox and watching the entire failover happen automatically.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 08 — Demo Results
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Demo Results</p>
+    <h2>What Just Happened</h2>
+    <div class="metrics">
+      <div class="metric teal fragment"><div class="value">&lt; 60s</div><div class="label">Total Failover Time<br>detection to report</div></div>
+      <div class="metric fragment"><div class="value">0</div><div class="label">Human Intervention<br>fully automated</div></div>
+      <div class="metric green fragment"><div class="value">2</div><div class="label">Routers Reconfigured<br>Bristol + Atlanta</div></div>
+      <div class="metric blue fragment"><div class="value">1</div><div class="label">Report Published<br>full audit trail</div></div>
+    </div>
+    <div class="comparison" style="margin-top: 0.8em;">
+      <div class="before">
+        <h3>Before</h3>
+        <ul>
+          <li>45 minutes of manual work</li>
+          <li>Spreadsheets, SSH, tribal knowledge</li>
+          <li>Documentation? Maybe tomorrow</li>
+        </ul>
+      </div>
+      <div class="after">
+        <h3>After</h3>
+        <ul>
+          <li>Under 60 seconds, fully automated</li>
+          <li>Dynamic backup discovery from SoT</li>
+          <li>Report published immediately</li>
+        </ul>
+      </div>
+    </div>
+
+    <aside class="notes">
+      Let that sink in. 45 minutes with eight manual steps — done in under 60 seconds with zero human intervention. Two routers reconfigured. Full incident report published. But here's the thing: the automation ran at 2am. It's now 9am. The operator walks in. What happened last night?
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 09 — MCP: The Gap + What is MCP (merged)
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Closing the Loop</p>
+    <h2>The Morning After &mdash; MCP</h2>
+    <div class="two-col">
+      <div class="col">
+        <h3>The Gap</h3>
+        <ul>
+          <li>Failover ran at 2am &mdash; <strong>someone still needs to understand what happened</strong></li>
+          <li>Was the backup activated correctly?</li>
+          <li>Which routers were affected?</li>
+          <li>Should we fail back to the primary?</li>
+        </ul>
+        <p style="font-size: 0.7em; margin-top: 0.5em; color: var(--rh-gray);">Today: open AAP UI, open NetBox, read the report, correlate manually.</p>
+      </div>
+      <div class="col">
+        <h3>MCP &mdash; Model Context Protocol</h3>
+        <ul>
+          <li><strong>Open standard</strong> connecting AI to external systems</li>
+          <li>Self-describing tools, scoped permissions</li>
+          <li>Think: <strong>Ansible modules for AI</strong></li>
+        </ul>
+        <div class="platform-cards" style="margin-top: 0.5em;">
+          <div class="platform-card nb" style="padding: 12px 14px;">
+            <h3 style="font-size: 0.75em;">NetBox MCP</h3>
+            <p style="font-size: 0.5em;">Read-only network data</p>
+          </div>
+          <div class="platform-card rh" style="padding: 12px 14px;">
+            <h3 style="font-size: 0.75em;">AAP MCP</h3>
+            <p style="font-size: 0.5em;">Job history + workflows</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="notes">
+      The automation handled the 2am fire drill. But at 9am, someone needs answers. Was the right backup activated? Should we fail back? Today that means three different UIs and manual correlation. MCP — Model Context Protocol — is an open standard that connects AI assistants to external systems. Think Ansible modules for AI: same capability as raw API, but governed, discoverable, and scoped. Both NetBox and AAP have MCP servers. Let me show you what that looks like.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 10 — MCP in Action
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Closing the Loop</p>
+    <h2>The Operator's Investigation</h2>
+    <div class="timeline">
+      <div class="event fragment">
+        <span class="time" style="color: var(--rh-blue);">Ask</span>
+        <span class="desc">"What was the latest circuit incident?"</span>
+      </div>
+      <div class="event blue fragment">
+        <span class="time" style="color: var(--rh-blue);">MCP</span>
+        <span class="desc">Queries AAP job history + NetBox circuit status simultaneously. Returns a cross-system incident summary.</span>
+      </div>
+      <div class="event fragment">
+        <span class="time" style="color: var(--rh-blue);">Ask</span>
+        <span class="desc">"Is the report timeline still accurate?"</span>
+      </div>
+      <div class="event blue fragment">
+        <span class="time" style="color: var(--rh-blue);">MCP</span>
+        <span class="desc">Fetches the published report, correlates against actual AAP job durations and live NetBox state.</span>
+      </div>
+      <div class="event fragment">
+        <span class="time" style="color: var(--rh-blue);">Ask</span>
+        <span class="desc">"Confirm the site coordinates in NetBox are correct."</span>
+      </div>
+      <div class="event blue fragment">
+        <span class="time" style="color: var(--rh-blue);">MCP</span>
+        <span class="desc">Queries NetBox sites API, returns regions and coordinates for verification.</span>
+      </div>
+    </div>
+
+    <aside class="notes">
+      This is what we actually did preparing for this presentation. Natural language questions, MCP queries both AAP and NetBox simultaneously, correlated answers come back. No switching between UIs, no API knowledge required. The operator gets a complete picture without touching a single dashboard.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 11 — The Complete Operations Loop
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">The Full Picture</p>
+    <h2>The Complete Operations Loop</h2>
+    <div class="flow" style="margin-top: 1.2em;">
+      <div class="step nb">
+        <span class="step-label">Detect</span>
+        <small>NetBox event rule<br>fires webhook to EDA</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step">
+        <span class="step-label">Remediate</span>
+        <small>AAP workflow: failover<br>+ router config push</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step gold">
+        <span class="step-label">Document</span>
+        <small>Incident report generated<br>and published automatically</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step blue">
+        <span class="step-label">Investigate</span>
+        <small>Operator verifies and<br>decides next steps via MCP</small>
+      </div>
+    </div>
+    <div class="comparison" style="margin-top: 1.2em;">
+      <div class="before" style="text-align: center;">
+        <h3>2:00 AM</h3>
+        <ul>
+          <li>Steps 1&ndash;3 run automatically</li>
+          <li>Zero human intervention</li>
+          <li>Under 60 seconds end-to-end</li>
+        </ul>
+      </div>
+      <div class="after" style="text-align: center;">
+        <h3>9:00 AM</h3>
+        <ul>
+          <li>Operator asks questions in natural language</li>
+          <li>MCP correlates AAP + NetBox data</li>
+          <li>Informed decision on failback</li>
+        </ul>
+      </div>
+    </div>
+
+    <aside class="notes">
+      The complete picture. Detect, remediate, document — fully automated at 2am. Investigate — the human comes back at 9am with a conversational interface that pulls from every system involved. The automation handles the fire drill. MCP helps the engineer understand it and decide what's next.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 12 — Thank You
+       ============================================================ -->
+  <section class="slide-thankyou">
+
+    <h1>Thank You</h1>
+    <div class="speaker-grid">
+      <div class="speaker">
+        <div class="avatar rh">LG</div>
+        <div class="name">Leonardo Gallego</div>
+        <div class="role">Sr. Technical Advocate<br>Ansible, Red Hat</div>
+      </div>
+      <div class="speaker">
+        <div class="avatar nb">MY</div>
+        <div class="name">Matt York</div>
+        <div class="role">Solutions Engineer<br>NetBox Labs</div>
+      </div>
+    </div>
+    <p style="font-size: 0.5em; color: var(--rh-gray); margin-top: 1.5em;">
+      <strong>Try it:</strong> ansible.com/network-automation &middot; netboxlabs.com/netbox-cloud &middot; netboxlabs.com/mcp
+    </p>
+    <div class="qna">Q&amp;A</div>
+
+    <aside class="notes">
+      Thank you for joining us. Resources on screen. Happy to take questions — about the failover demo, MCP, or anything else.
+    </aside>
+  </section>
+
+</div><!-- .slides -->
+</div><!-- .reveal -->
+
+<script src="vendor/reveal.js/reveal.js"></script>
+<script src="vendor/reveal.js/plugin/notes.js"></script>
+<script src="vendor/reveal.js/plugin/highlight.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    controls: true,
+    progress: true,
+    center: false,
+    transition: 'slide',
+    backgroundTransition: 'none',
+    slideNumber: 'c/t',
+    pdfSeparateFragments: false,
+    width: 1280,
+    height: 720,
+    plugins: [ RevealNotes, RevealHighlight ]
+  });
+</script>
+
+</body>
+</html>

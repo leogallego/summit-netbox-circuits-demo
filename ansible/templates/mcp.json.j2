@@ -1,4 +1,3 @@
-{{ ansible_managed | comment(decoration="// ") }}
 {
   "mcpServers": {
 {% for service in mcp_services %}
@@ -10,20 +9,8 @@
 {% endfor %}
 {% if mcp_netbox_enabled %}
     "netbox": {
-      "command": "{{ container_runtime }}",
-      "args": [
-        "run", "--rm", "-i",
-        "-e", "NETBOX_URL",
-        "-e", "NETBOX_TOKEN",
-{% if not netbox_verify_ssl %}
-        "-e", "VERIFY_SSL=false",
-{% endif %}
-        "{{ netbox_mcp_image }}"
-      ],
-      "env": {
-        "NETBOX_URL": "{{ netbox_url }}",
-        "NETBOX_TOKEN": "{{ mcp_netbox_token }}"
-      }
+      "type": "http",
+      "url": "http://127.0.0.1:{{ netbox_mcp_port }}/mcp"
     }
 {% endif %}
   }

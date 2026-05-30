@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Real-Time NetOps | Red Hat + NetBox Labs Webinar</title>
+
+  <link rel="stylesheet" href="vendor/reveal.js/reset.css" />
+  <link rel="stylesheet" href="vendor/reveal.js/reveal.css" />
+  <link rel="stylesheet" href="vendor/reveal.js/plugin/monokai.css" />
+  <link rel="stylesheet" href="theme.css" />
+</head>
+<body>
+
+<div class="reveal">
+<div class="slides">
+
+  <!-- ============================================================
+       SLIDE 01 — Title
+       ============================================================ -->
+  <section class="slide-title">
+
+    <p class="section-label">Red Hat + NetBox Labs &middot; Webinar</p>
+    <h1>Real-Time NetOps</h1>
+    <p class="subtitle">Ansible Automation Platform meets NetBox as your network source of truth</p>
+    <div class="speakers">
+      <p><strong>Leonardo Gallego</strong> &middot; Sr. Technical Advocate, Ansible, Red Hat</p>
+      <p><strong>Matt York</strong> &middot; Solutions Engineer, NetBox Labs</p>
+    </div>
+
+    <aside class="notes">
+      Welcome everyone. Today Leo and Matt are going to show you how NetBox and Ansible Automation Platform work together to automate WAN circuit failover — from detection to remediation to a published incident report, all in under 60 seconds. We'll run it live.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 02 — Welcome / Agenda
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Welcome</p>
+    <h2>What You'll See Today</h2>
+    <ul>
+      <li class="fragment">What is a <strong>Network Source of Truth</strong> and why it matters</li>
+      <li class="fragment">How <strong>NetBox + Ansible Automation Platform</strong> work together</li>
+      <li class="fragment">Live demo: <strong>automated circuit failover</strong> in under 60 seconds</li>
+      <li class="fragment">Closing the loop: <strong>AI-assisted investigation</strong> with MCP</li>
+    </ul>
+
+    <aside class="notes">
+      Quick roadmap. First we'll set context — what's a network source of truth, why it matters. Then the joint architecture. Then we run the demo live. And at the end, something new — how an operator can investigate what happened using AI and MCP. Let's start with context.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 03 — Automated NetOps
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Context</p>
+    <h2>Automated NetOps with Ansible Automation Platform</h2>
+    <div class="three-col">
+      <div class="col">
+        <h3>Network Visibility</h3>
+        <ul>
+          <li>Generate network inventories and reports</li>
+          <li>Audit compliance and drift</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3>Configuration Management</h3>
+        <ul>
+          <li>Standardize and enforce best practices</li>
+          <li>Centralize your Source of Truth</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3>Network Operations</h3>
+        <ul>
+          <li>Run health checks, deploy upgrades at scale</li>
+          <li>Apply <strong>event-driven automation</strong> to mitigate outages</li>
+        </ul>
+      </div>
+    </div>
+
+    <aside class="notes">
+      Many of you are probably already doing the first two columns — generating inventories, enforcing config standards. Today's demo is about the third column: event-driven operations. When something breaks, the platform responds automatically. That's where we're headed.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 04 — What is NSoT
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Context</p>
+    <h2>What is a Network Source of Truth?</h2>
+    <ul>
+      <li class="fragment">Defines the <strong>intended state</strong> of the network as <strong>structured data</strong></li>
+      <li class="fragment">A single consistent data set &mdash; not spreadsheets and Visio diagrams</li>
+      <li class="fragment">The authoritative reference that <strong>drives network automation</strong></li>
+      <li class="fragment">Not a static CMDB &mdash; an <strong>active platform</strong> with APIs, webhooks, and event streams</li>
+    </ul>
+
+    <aside class="notes">
+      A network source of truth defines what the network should look like as structured, API-accessible data. It's the shift from describing your network in documents to modeling it in a system that can drive automation. NetBox is the most popular implementation of this concept.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 05 — NetBox
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Context</p>
+    <h2>NetBox &mdash; The World's Most Popular Network SoT</h2>
+    <div class="two-col">
+      <div class="col">
+        <ul>
+          <li><strong>Comprehensive data model</strong> &mdash; from ASNs to VPNs and everything in between</li>
+          <li><strong>API &amp; integration first</strong> &mdash; REST, GraphQL, Event Streams, Webhooks</li>
+          <li><strong>Massive extensibility</strong> &mdash; Plugins, Device Types, Custom Scripts &amp; Fields</li>
+        </ul>
+      </div>
+      <div class="col">
+        <ul>
+          <li><strong>15K+</strong> GitHub stars</li>
+          <li><strong>11K+</strong> commits &mdash; feature complete + rapid development</li>
+          <li><strong>~290</strong> contributors</li>
+          <li><strong>1000s</strong> of companies in production</li>
+        </ul>
+      </div>
+    </div>
+
+    <aside class="notes">
+      NetBox is the world's most popular network source of truth, maintained by NetBox Labs. What makes it particularly powerful for our use case is the webhook and event stream capability — when something changes in NetBox, it can notify external systems immediately.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 06 — The Integration
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Joint Solution</p>
+    <h2>Red Hat + NetBox Labs</h2>
+    <div class="platform-cards">
+      <div class="platform-card nb">
+        <h3>NetBox Cloud</h3>
+        <p>Source of truth for network infrastructure.</p>
+        <p>Every circuit, device, site, and connection modeled as structured, API-first data.</p>
+        <p>Not a static CMDB &mdash; an active platform that drives automation.</p>
+      </div>
+      <div class="platform-card rh">
+        <h3>Ansible Automation Platform</h3>
+        <p>Automation Controller runs workflows with full RBAC, logging, and credential management.</p>
+        <p>Execution Environments guarantee consistency between dev and prod.</p>
+      </div>
+      <div class="platform-card eda">
+        <h3>Event-Driven Ansible</h3>
+        <p>Listens for events &mdash; webhooks, logs, alerts.</p>
+        <p>Evaluates rulebook conditions and triggers automation with zero human delay.</p>
+        <p>The bridge between "something changed" and "do something about it."</p>
+      </div>
+    </div>
+
+    <aside class="notes">
+      Here's how the three components fit together. NetBox is the source of truth. Ansible Automation Platform is the execution engine. And Event-Driven Ansible is the glue — it listens for changes in NetBox and triggers the right automation immediately.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 07 — Customer Story Divider
+       ============================================================ -->
+  <section class="slide-divider">
+
+    <h2>A Customer Story</h2>
+    <p class="divider-subtitle">Why this matters</p>
+
+    <aside class="notes">
+      Let me tell you a story that motivates everything you're about to see.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 08 — The Pain
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">The Problem</p>
+    <h2>A Customer Story</h2>
+    <div class="quote-block">
+      <div class="quote-text">"Our intercontinental IPLC link between Bristol and Atlanta went down."</div>
+      <div class="quote-detail">We had a secondary link available. But it took our team 45 minutes to find it, identify which routers were affected, and manually re-configure the failover path.</div>
+      <div class="quote-impact">In those 45 minutes, we lost hundreds of thousands of dollars.</div>
+    </div>
+    <div class="steps" style="margin-top: 1em;">
+      <div class="step-box nb"><div class="step-num">1</div><div class="step-title">Detect and disable</div></div>
+      <div class="step-box rh"><div class="step-num">2</div><div class="step-title">Failover automatically</div></div>
+      <div class="step-box gold"><div class="step-num">3</div><div class="step-title">Document everything</div></div>
+    </div>
+
+    <aside class="notes">
+      This is a real problem. An IPLC link goes down. There's a backup — but finding it, identifying affected routers, and reconfiguring takes 45 minutes with spreadsheets, SSH, and tribal knowledge. Our combined platform solves this in three steps: detect, failover, document.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 09 — Why 45 Minutes
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">The Problem</p>
+    <h2>Why Did It Take 45 Minutes?</h2>
+    <div class="timeline">
+      <div class="event fragment"><span class="time">0:00</span> <span class="desc">Alert fires. Engineers are paged.</span></div>
+      <div class="event fragment"><span class="time">0:05</span> <span class="desc">Spreadsheets and old Visio diagrams to find the secondary circuit.</span></div>
+      <div class="event fragment"><span class="time">0:15</span> <span class="desc">Secondary found &mdash; but which routers does it use?</span></div>
+      <div class="event fragment"><span class="time">0:22</span> <span class="desc">Cross-reference IPAM, check logs, ask someone who "knows the network."</span></div>
+      <div class="event fragment"><span class="time">0:30</span> <span class="desc">SSH into Bristol router. Find the interface. Apply config.</span></div>
+      <div class="event fragment"><span class="time">0:37</span> <span class="desc">SSH into Atlanta router. Repeat.</span></div>
+      <div class="event fragment"><span class="time">0:43</span> <span class="desc">Test connectivity. Something is wrong. Roll back. Try again.</span></div>
+      <div class="event green fragment"><span class="time">0:45</span> <span class="desc">Traffic restored. Documentation? That happened the next day. Maybe.</span></div>
+    </div>
+
+    <aside class="notes">
+      Every step here is a human bottleneck. Finding the backup circuit, identifying the routers, SSHing in, applying config, testing — all manual, all sequential, all error-prone. And the documentation? It usually never happens.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 10 — The Architecture
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">The Solution</p>
+    <h2>Automated Failover Architecture</h2>
+    <div class="flow">
+      <div class="step nb">
+        <span class="step-label">NetBox</span>
+        <small>Circuit &rarr; offline</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step gold">
+        <span class="step-label">EDA</span>
+        <small>Webhook &rarr; rulebook</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step">
+        <span class="step-label">Step 1: Failover</span>
+        <small>Query NetBox, discover backup, update SoT</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step">
+        <span class="step-label">Step 2: Router Config</span>
+        <small>Push routing via cisco.ios</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step green">
+        <span class="step-label">Step 3: Report</span>
+        <small>HTML report &rarr; GitHub Pages</small>
+      </div>
+    </div>
+    <div style="margin-top: 1em; font-size: 0.65em; color: var(--rh-gray);">
+      <p><strong>Backup discovery is dynamic</strong> &mdash; all circuits tagged <code>dd</code> present at both sites are candidates, selected by highest committed bandwidth. No hardcoded backup mappings.</p>
+    </div>
+
+    <aside class="notes">
+      Here's the full architecture. When a circuit status changes to offline in NetBox, an event rule fires a webhook to Event-Driven Ansible. EDA evaluates the rulebook condition and launches the Circuit Failover Workflow on Automation Controller. The workflow has three steps: update the source of truth, push router config, generate the incident report. Backup discovery is dynamic — no hardcoded mappings.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 11 — EDA Rulebook Code
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Under the Hood</p>
+    <h2>EDA Rulebook &mdash; The Glue</h2>
+    <pre><code class="language-yaml">- name: NetBox Circuit Failover
+  hosts: all
+  sources:
+    - ansible.eda.webhook:
+        host: 0.0.0.0
+        port: 5000
+
+  rules:
+    - name: Circuit failure detected
+      condition: >
+        event.payload.object_type == "circuits.circuit" and
+        event.payload.data.status.value in ["offline", "failed"]
+      action:
+        run_workflow_template:
+          name: "Circuit Failover Workflow"
+          organization: "Webinar"
+          job_args:
+            extra_vars:
+              failed_circuit: "{{ event.payload.data.cid }}"</code></pre>
+
+    <aside class="notes">
+      This is the entire EDA rulebook. It listens for NetBox webhook events, checks if a circuit went offline or failed, and launches the failover workflow on Automation Controller — passing the circuit ID as an extra variable. That's it. Eight lines of condition and action logic.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 12 — Failover Playbook Code
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Under the Hood</p>
+    <h2>Dynamic Backup Discovery</h2>
+    <pre><code class="language-yaml"># Query circuits at both sites, find common ones, pick the best
+- name: Query dd-tagged circuits at A-side site
+  ansible.builtin.set_fact:
+    a_site_circuits: >-
+      {{ query('netbox.netbox.nb_lookup', 'circuits',
+               api_filter='site_id=' ~ a_side_site.id ~ ' tag=dd') }}
+
+- name: Build backup candidate list
+  ansible.builtin.set_fact:
+    backup_candidates: >-
+      {{ a_site_circuits
+         | selectattr('id', 'in', z_circuit_ids)
+         | rejectattr('id', 'eq', primary.id)
+         | list }}
+
+- name: Select best backup (highest commit rate)
+  ansible.builtin.set_fact:
+    backup: >-
+      {{ backup_candidates
+         | sort(attribute='commit_rate', reverse=true)
+         | first }}</code></pre>
+
+    <aside class="notes">
+      Here's the key logic from the failover playbook. No hardcoded backup mappings. It queries NetBox for all circuits tagged 'dd' at both sites, finds the ones that exist at both ends, excludes the failed one, and picks the backup with the highest committed bandwidth. If you add a new circuit to NetBox tomorrow, the automation discovers it automatically.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 13 — Gateway Derivation from NetBox
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Under the Hood</p>
+    <h2>Gateway Derivation from NetBox</h2>
+    <div class="two-col">
+      <div class="col">
+        <h3>NetBox Data Model</h3>
+        <pre style="font-size: 0.85em;"><code class="language-yaml">Circuit (IPLC-GB-AT-PRI)
+  └─ Termination (A-side)
+       └─ Cable → Device Interface
+            └─ IP: 172.16.0.2/24</code></pre>
+        <ul>
+          <li>Circuit terminations are <strong>cabled</strong> to router interfaces in NetBox</li>
+          <li>Each interface has an <strong>IP address</strong> assigned</li>
+          <li>The gateway is <strong>derived</strong>, not stored</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3>Gateway Logic</h3>
+        <pre style="font-size: 0.85em;"><code class="language-yaml"># IP on the interface
+172.16.0.2/24
+  → network: 172.16.0.0/24
+    → first host: 172.16.0.1 ← gateway
+
+# Router config generated:
+no ip route 0.0.0.0/0 172.16.0.1  # old
+ip route 0.0.0.0/0 172.16.1.1    # new</code></pre>
+        <ul>
+          <li>Subnet's <strong>first usable host</strong> = provider gateway</li>
+          <li>Works for point-to-point links (<code>.1</code> = provider, <code>.2</code> = customer)</li>
+        </ul>
+      </div>
+    </div>
+
+    <aside class="notes">
+      This is how the automation knows which gateway to remove and which to add — without any hardcoded IPs. Each circuit termination in NetBox is cabled to a router interface. That interface has an IP address. The playbook takes that IP, extracts the subnet, and derives the gateway as the first usable host — because on a point-to-point link, .1 is the provider side and .2 is our router. So the entire router config — which route to remove, which to add — comes directly from the NetBox data model. Change a cable or IP in NetBox, and the next failover automatically uses the right gateways.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 14 — Demo Divider
+       ============================================================ -->
+  <section class="slide-divider">
+
+    <h2>Live Demo</h2>
+    <p class="divider-subtitle">45 minutes &rarr; 60 seconds</p>
+
+    <aside class="notes">
+      Let's see it in action. We're going to take a circuit offline in NetBox and watch the entire failover happen automatically.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 12 — Demo Results
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Demo Results</p>
+    <h2>What Just Happened</h2>
+    <div class="metrics">
+      <div class="metric teal fragment"><div class="value">&lt; 60s</div><div class="label">Total Failover Time<br>detection to report</div></div>
+      <div class="metric fragment"><div class="value">0</div><div class="label">Human Intervention<br>fully automated</div></div>
+      <div class="metric green fragment"><div class="value">2</div><div class="label">Routers Reconfigured<br>Bristol + Atlanta</div></div>
+      <div class="metric blue fragment"><div class="value">1</div><div class="label">Report Published<br>full audit trail</div></div>
+    </div>
+    <div class="comparison" style="margin-top: 0.8em;">
+      <div class="before">
+        <h3>Before</h3>
+        <ul>
+          <li>45 minutes of manual work</li>
+          <li>Spreadsheets, SSH, tribal knowledge</li>
+          <li>Documentation? Maybe tomorrow</li>
+        </ul>
+      </div>
+      <div class="after">
+        <h3>After</h3>
+        <ul>
+          <li>Under 60 seconds, fully automated</li>
+          <li>Dynamic backup discovery from SoT</li>
+          <li>Report published immediately</li>
+        </ul>
+      </div>
+    </div>
+
+    <aside class="notes">
+      Under 60 seconds. Zero human intervention. Two routers reconfigured. One report published with a full audit trail. Compared to 45 minutes of manual work with no documentation.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 13 — MCP Divider
+       ============================================================ -->
+  <section class="slide-divider">
+
+    <h2>The Morning After</h2>
+    <p class="divider-subtitle">Closing the loop with MCP</p>
+
+    <aside class="notes">
+      The automation ran at 2am. It's now 9am. The network operator arrives. What happened last night? This is where MCP comes in.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 14 — The Gap
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Closing the Loop</p>
+    <h2>The Automation Ran. Now What?</h2>
+    <ul>
+      <li class="fragment">The failover happened automatically at 2am &mdash; <strong>but someone still needs to understand what happened</strong></li>
+      <li class="fragment">Was the backup circuit activated correctly?</li>
+      <li class="fragment">Which routers were affected? Is the report accurate?</li>
+      <li class="fragment">Should we restore the original circuit now that the provider confirmed it's fixed?</li>
+    </ul>
+    <p class="fragment" style="margin-top: 1em; font-size: 0.75em; border-left: 4px solid var(--rh-gold); padding-left: 16px; color: var(--rh-dark);">
+      Today this means: open the AAP UI, check job history, open NetBox, cross-reference circuits, read the report, correlate timestamps manually.
+    </p>
+
+    <aside class="notes">
+      Automation handles the 2am fire drill. But at 9am, someone needs to investigate, verify, and decide next steps. Today that means switching between the AAP UI, NetBox, and the report — manually correlating data across three different systems.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 15 — What is MCP
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Closing the Loop</p>
+    <h2>MCP &mdash; Model Context Protocol</h2>
+    <ul>
+      <li class="fragment"><strong>An open standard</strong> for connecting AI assistants to external systems</li>
+      <li class="fragment">AI sees <strong>self-describing tools</strong> &mdash; not raw API endpoints</li>
+      <li class="fragment">Works across models and clients &mdash; <strong>not vendor-locked</strong></li>
+      <li class="fragment">Think: <strong>Ansible modules for AI</strong> &mdash; same capability as raw API, but with a consistent interface, scoped permissions, and built-in discovery</li>
+    </ul>
+    <div class="platform-cards" style="margin-top: 0.8em;">
+      <div class="platform-card nb">
+        <h3>NetBox MCP Server</h3>
+        <p>Read-only access to network data: sites, circuits, devices, IPs.</p>
+        <p>Scoped with a readonly API token.</p>
+      </div>
+      <div class="platform-card rh">
+        <h3>AAP MCP Server</h3>
+        <p>Query job history, workflow status, job events, host summaries.</p>
+        <p>Launch and monitor automation workflows.</p>
+      </div>
+    </div>
+
+    <aside class="notes">
+      MCP is an open standard for connecting AI assistants to external data sources. Think of it as Ansible modules for AI — same underlying capability as raw API access, but with a consistent interface, scoped permissions, and built-in discovery. Both NetBox and Ansible Automation Platform have MCP servers.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 16 — MCP in Action
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Closing the Loop</p>
+    <h2>The Operator's Investigation</h2>
+    <div class="timeline">
+      <div class="event fragment">
+        <span class="time" style="color: var(--rh-blue);">Ask</span>
+        <span class="desc">"What was the latest circuit incident?"</span>
+      </div>
+      <div class="event blue fragment">
+        <span class="time" style="color: var(--rh-blue);">MCP</span>
+        <span class="desc">Queries AAP job history + NetBox circuit status simultaneously. Returns a cross-system incident summary.</span>
+      </div>
+      <div class="event fragment">
+        <span class="time" style="color: var(--rh-blue);">Ask</span>
+        <span class="desc">"Is the report timeline still accurate?"</span>
+      </div>
+      <div class="event blue fragment">
+        <span class="time" style="color: var(--rh-blue);">MCP</span>
+        <span class="desc">Fetches the published report, correlates against actual AAP job durations and live NetBox state.</span>
+      </div>
+      <div class="event fragment">
+        <span class="time" style="color: var(--rh-blue);">Ask</span>
+        <span class="desc">"Confirm the site coordinates in NetBox are correct."</span>
+      </div>
+      <div class="event blue fragment">
+        <span class="time" style="color: var(--rh-blue);">MCP</span>
+        <span class="desc">Queries NetBox sites API, returns regions and coordinates for verification.</span>
+      </div>
+    </div>
+
+    <aside class="notes">
+      This is what we actually did before this presentation. The operator asks questions in natural language. MCP queries both AAP and NetBox simultaneously and returns correlated answers. No switching between UIs, no API knowledge required, no manual data correlation.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 17 — MCP Value
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Closing the Loop</p>
+    <h2>Why MCP, Not Just the API?</h2>
+    <div class="two-col">
+      <div class="col">
+        <h3>What MCP Adds</h3>
+        <ul>
+          <li><strong>Tool-level permissioning</strong> &mdash; operator approves each action visibly</li>
+          <li><strong>Multi-system correlation</strong> &mdash; AAP + NetBox in one conversation, no glue code</li>
+          <li><strong>Standardized interface</strong> &mdash; works in IDEs, chatbots, agent frameworks</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3>The Honest Take</h3>
+        <ul>
+          <li>MCP doesn't make anything <strong>possible</strong> that wasn't before</li>
+          <li>It makes it <strong>governable</strong> &mdash; scoped tokens, visible actions, audit trail</li>
+          <li>Same argument as <strong>Ansible modules vs. raw SSH</strong> &mdash; same capability, better interface</li>
+        </ul>
+      </div>
+    </div>
+
+    <aside class="notes">
+      Let's be honest about what MCP is and isn't. It doesn't make anything possible that wasn't before — you can always just use the API directly. What it adds is governance: scoped permissions, visible tool invocations the operator can approve or deny, and a standard interface that works across different AI clients. It's the same argument as Ansible modules vs raw SSH — same capability, but a consistent, governed interface that scales better.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 18 — The Full Loop
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">The Full Picture</p>
+    <h2>The Complete Operations Loop</h2>
+    <div class="flow" style="margin-top: 1.2em;">
+      <div class="step nb">
+        <span class="step-label">Detect</span>
+        <small>NetBox event rule<br>fires webhook to EDA</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step">
+        <span class="step-label">Remediate</span>
+        <small>AAP workflow: failover<br>+ router config push</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step gold">
+        <span class="step-label">Document</span>
+        <small>Incident report generated<br>and published automatically</small>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+      <div class="step blue">
+        <span class="step-label">Investigate</span>
+        <small>Operator verifies and<br>decides next steps via MCP</small>
+      </div>
+    </div>
+    <div class="comparison" style="margin-top: 1.2em;">
+      <div class="before" style="text-align: center;">
+        <h3>2:00 AM</h3>
+        <ul>
+          <li>Steps 1&ndash;3 run automatically</li>
+          <li>Zero human intervention</li>
+          <li>Under 60 seconds end-to-end</li>
+        </ul>
+      </div>
+      <div class="after" style="text-align: center;">
+        <h3>9:00 AM</h3>
+        <ul>
+          <li>Operator asks questions in natural language</li>
+          <li>MCP correlates AAP + NetBox data</li>
+          <li>Informed decision on failback</li>
+        </ul>
+      </div>
+    </div>
+
+    <aside class="notes">
+      Here's the complete operations loop. Detect, remediate, document — all fully automated, all under 60 seconds, no human needed. Then at 9am, the operator uses MCP to investigate what happened, verify the report, and decide whether to fail back to the primary circuit. The automation handles the fire drill. MCP helps the engineer understand it.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 19 — Resources
+       ============================================================ -->
+  <section class="slide-content">
+
+    <p class="section-label">Resources</p>
+    <h2>Get Started</h2>
+    <div class="two-col">
+      <div class="col">
+        <h3>Ansible Automation Platform</h3>
+        <ul>
+          <li><strong>Self-paced labs</strong> &mdash; network automation series</li>
+          <li><strong>Try Ansible Automation Platform</strong> for free</li>
+          <li><strong>Network Automation Guide</strong> &mdash; updated 2025</li>
+          <li><strong>What's new in AAP 2.6</strong></li>
+          <li><strong>Network Automation webinar series</strong> (6 parts)</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3>NetBox Labs</h3>
+        <ul>
+          <li><strong>NetBox Cloud</strong> &mdash; managed NetBox SoT</li>
+          <li><strong>NetBox MCP Server</strong> &mdash; AI integration</li>
+          <li><strong>netbox.netbox</strong> Ansible collection</li>
+          <li><strong>NetBox documentation</strong></li>
+        </ul>
+      </div>
+    </div>
+
+    <aside class="notes">
+      Here are resources to get started with both platforms. The self-paced labs include a full network automation series. NetBox Cloud gives you a managed source of truth, and the netbox.netbox Ansible collection provides all the modules we used in today's demo.
+    </aside>
+  </section>
+
+  <!-- ============================================================
+       SLIDE 20 — Thank You
+       ============================================================ -->
+  <section class="slide-thankyou">
+
+    <h1>Thank You</h1>
+    <div class="speaker-grid">
+      <div class="speaker">
+        <div class="avatar rh">LG</div>
+        <div class="name">Leonardo Gallego</div>
+        <div class="role">Sr. Technical Advocate<br>Ansible, Red Hat</div>
+      </div>
+      <div class="speaker">
+        <div class="avatar nb">MY</div>
+        <div class="name">Matt York</div>
+        <div class="role">Solutions Engineer<br>NetBox Labs</div>
+      </div>
+    </div>
+    <div class="qna">Q&amp;A</div>
+
+    <aside class="notes">
+      Thank you for joining us. We're happy to take questions — about the failover demo, the MCP integration, or anything else you'd like to discuss.
+    </aside>
+  </section>
+
+</div><!-- .slides -->
+</div><!-- .reveal -->
+
+<script src="vendor/reveal.js/reveal.js"></script>
+<script src="vendor/reveal.js/plugin/notes.js"></script>
+<script src="vendor/reveal.js/plugin/highlight.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    controls: true,
+    progress: true,
+    center: false,
+    transition: 'slide',
+    backgroundTransition: 'none',
+    slideNumber: 'c/t',
+    pdfSeparateFragments: false,
+    width: 1280,
+    height: 720,
+    plugins: [ RevealNotes, RevealHighlight ]
+  });
+</script>
+
+</body>
+</html>

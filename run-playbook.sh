@@ -44,4 +44,10 @@ if [[ "${IOSXE_VERSION}" == 16.* || "${IOSXE_VERSION}" == 15.* ]]; then
   )
 fi
 
-ansible-navigator run "$@" -i ansible/inventory/localhost.yml "${CRYPTO_ARGS[@]}"
+# Workstation-only playbooks run outside the EE (need host tools like podman).
+LOCAL_ARGS=()
+case "$1" in
+  *pb_setup_mcp*) LOCAL_ARGS=(--ee false) ;;
+esac
+
+ansible-navigator run "$@" -i ansible/inventory/localhost.yml "${CRYPTO_ARGS[@]}" "${LOCAL_ARGS[@]}"

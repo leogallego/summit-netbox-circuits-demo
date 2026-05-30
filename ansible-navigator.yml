@@ -36,6 +36,12 @@ ansible-navigator:
         - ROUTER_USERNAME
         - ROUTER_PRIMARY_GW
         - ROUTER_BACKUP_GW
+        - MCP_AAP_TOKEN
+        - MCP_AAP_SERVER
+        - MCP_AAP_PORT
+        - MCP_NETBOX_TOKEN
+        - MCP_NETBOX_PORT
+        - NETBOX_VERIFY_SSL
 
   mode: stdout
 

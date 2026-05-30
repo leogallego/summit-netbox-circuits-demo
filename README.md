@@ -188,3 +188,10 @@ setup.sh / reset.sh         # Setup and reset helper scripts
 DEMO.md                     # Full scenario and architecture reference
 SETUP.md                    # Setup and configuration guide
 ```
+
+---
+
+## Authors
+
+- **Matt York** — [NetBox Labs](https://netboxlabs.com)
+- **Leonardo Gallego** — [Red Hat](https://redhat.com)

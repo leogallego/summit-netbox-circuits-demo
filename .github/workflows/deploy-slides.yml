@@ -1,0 +1,43 @@
+---
+name: Deploy webinar slides to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "slides/webinar/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Sync slides to gh-pages/slides
+        run: |
+          rm -rf gh-pages/slides
+          cp -r slides/webinar gh-pages/slides
+
+      - name: Push to gh-pages
+        run: |
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add slides/
+          if git diff --cached --quiet; then
+            echo "No changes to deploy"
+          else
+            git commit -m "docs: update webinar slides"
+            git push
+          fi

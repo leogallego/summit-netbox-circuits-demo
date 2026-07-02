@@ -85,6 +85,17 @@
         src: "{{ playbook_dir }}/templates/mcp.json.j2"
         dest: "{{ playbook_dir }}/../.mcp.json"
         mode: "0600"
+        backup: true
+      tags:
+        - config
+
+    - name: Build NetBox status message
+      ansible.builtin.set_fact:
+        __mcp_netbox_status: >-
+          {{ ', plus NetBox at http://127.0.0.1:' ~ netbox_mcp_port
+             ~ '/mcp (container: netbox-mcp)'
+             if mcp_netbox_enabled
+             else ' (NetBox MCP skipped — MCP_NETBOX_TOKEN not set)' }}
       tags:
         - config
 
@@ -92,7 +103,7 @@
       ansible.builtin.debug:
         msg: >-
           .mcp.json written — {{ mcp_services | length }} AAP MCP services
-          pointing at {{ mcp_aap_base_url }}{{ ', plus NetBox at http://127.0.0.1:' ~ netbox_mcp_port ~ '/mcp (container: netbox-mcp)' if mcp_netbox_enabled else ' (NetBox MCP skipped — MCP_NETBOX_TOKEN not set)' }}.
+          pointing at {{ mcp_aap_base_url }}{{ __mcp_netbox_status }}.
           Set MCP_AAP_TOKEN in your .env to authenticate.
         verbosity: 0
       tags:

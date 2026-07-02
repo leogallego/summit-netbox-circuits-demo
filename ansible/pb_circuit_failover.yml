@@ -26,7 +26,7 @@
 # Usage (from AAP workflow):
 #   Pass the circuit CID in the extra_vars payload as 'failed_circuit'.
 
-- name: "Automated Circuit Failover — {{ failed_circuit }}"
+- name: "Automated Circuit Failover — {{ failed_circuit | default('UNSET') }}"
   hosts: localhost
   connection: local
   gather_facts: true

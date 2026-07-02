@@ -25,7 +25,7 @@
 #     -e failed_circuit=IPLC-GB-AT-PRI \
 #     -e '{"router_targets": [{"name": "rtr1", "ip": "10.0.0.1", "failed_gw": "172.16.0.1", "backup_gw": "172.16.1.1"}]}'
 
-- name: "Push failover routing — {{ failed_circuit }}"
+- name: "Push failover routing — {{ failed_circuit | default('UNSET') }}"
   hosts: localhost
   connection: local
   gather_facts: false
@@ -83,7 +83,7 @@
 # demo router this is fine; for multiple routers, add a Play 3 on localhost
 # to aggregate per-host results before calling set_stats.
 
-- name: "Apply failover routing — {{ failed_circuit | default('unknown') }}"
+- name: "Apply failover routing — {{ failed_circuit | default('UNSET') }}"
   hosts: failover_routers
   gather_facts: false
   ignore_unreachable: true

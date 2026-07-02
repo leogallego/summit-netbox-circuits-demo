@@ -80,7 +80,7 @@
           loop: "{{ existing_instances.instances }}"
           loop_control:
             label: "{{ item.instance_id }}"
-          ignore_errors: true
+          ignore_errors: true  # EIP may already be released; varied AWS error types
           when: existing_instances.instances | length > 0
 
         - name: Release unassociated EIPs by tag
@@ -91,7 +91,7 @@
             reuse_existing_ip_allowed: true
             tag_name: Name
             tag_value: "{{ eip_tag_name }}"
-          ignore_errors: true
+          ignore_errors: true  # EIP may already be released; varied AWS error types
 
         - name: Terminate demo router instances
           amazon.aws.ec2_instance:

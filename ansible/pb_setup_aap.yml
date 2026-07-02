@@ -155,7 +155,7 @@
             NETBOX_URL: "{{ '{{' }} NETBOX_API {{ '}}' }}"
             NETBOX_TOKEN: "{{ '{{' }} NETBOX_TOKEN {{ '}}' }}"
         state: present
-      ignore_errors: true
+      ignore_errors: true  # credential types are global in AAP — 403 from other orgs
       tags:
         - credentials
 
@@ -196,7 +196,7 @@
             GITHUB_TOKEN: "{{ '{{' }} GITHUB_TOKEN {{ '}}' }}"
             GITHUB_REPO: "{{ '{{' }} GITHUB_REPO {{ '}}' }}"
         state: present
-      ignore_errors: true
+      ignore_errors: true  # credential types are global in AAP — 403 from other orgs
       when: github_token | length > 0
       tags:
         - credentials
@@ -537,7 +537,7 @@
         name: "{{ eda_activation_name }}"
         organization_name: "{{ aap_org_name }}"
         state: disabled
-      ignore_errors: true
+      ignore_errors: true  # activation may not exist on first run
       tags:
         - eda
 
@@ -884,5 +884,9 @@
               Event Rule:       {{ netbox_webhook_name }} (circuits.circuit → object_updated)
               {{ 'Report Server:   ' ~ report_server_host ~ ':' ~ report_server_port if report_server_host | length > 0 else '' }}
               {{ 'Router Cred:     ' ~ router_cred_name ~ ' (' ~ router_ip ~ ')' if router_ip | length > 0 else '' }}
-              {{ 'RH Registry:     ' ~ rh_registry_cred_name if lookup('env', 'RH_REGISTRY_USERNAME') | length > 0 else 'RH Registry:     (not configured — DE uses pull_policy=missing)' }}
+          {% if lookup('env', 'RH_REGISTRY_USERNAME') | length > 0 %}
+              RH Registry:     {{ rh_registry_cred_name }}
+          {% else %}
+              RH Registry:     (not configured — DE uses pull_policy=missing)
+          {% endif %}
         verbosity: 0

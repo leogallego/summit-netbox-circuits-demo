@@ -30,6 +30,20 @@
           description: "Demo day — scopes all queries to demo-relevant objects"
         state: present
 
+    # ── Regions ────────────────────────────────────────────────────────────────
+
+    - name: Create regions
+      netbox.netbox.netbox_region:
+        netbox_url: "{{ netbox_url }}"
+        netbox_token: "{{ netbox_token }}"
+        validate_certs: "{{ netbox_validate_certs }}"
+        data:
+          name: "{{ item.name }}"
+        state: present
+      loop: "{{ demo_regions }}"
+      loop_control:
+        label: "{{ item.name }}"
+
     # ── Sites ─────────────────────────────────────────────────────────────────
 
     - name: Create sites
@@ -38,10 +52,15 @@
         netbox_token: "{{ netbox_token }}"
         validate_certs: "{{ netbox_validate_certs }}"
         data:
-          name: "{{ item }}"
+          name: "{{ item.name }}"
           status: Active
+          region: "{{ item.region }}"
+          latitude: "{{ item.latitude }}"
+          longitude: "{{ item.longitude }}"
         state: present
       loop: "{{ demo_sites }}"
+      loop_control:
+        label: "{{ item.name }}"
 
     # ── Provider ──────────────────────────────────────────────────────────────
 
@@ -251,7 +270,7 @@
       ansible.builtin.debug:
         msg: |
           NetBox seeded with demo data:
-            Sites:      {{ demo_sites | join(', ') }}
+            Sites:      {{ demo_sites | map(attribute='name') | join(', ') }}
             Provider:   {{ provider_name }}
             Routers:    {{ demo_routers | map(attribute='name') | join(', ') }}
             Circuits:   {{ demo_circuits | map(attribute='cid') | join(', ') }}

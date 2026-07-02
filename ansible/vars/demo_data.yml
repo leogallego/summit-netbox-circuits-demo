@@ -18,10 +18,23 @@ device_role_name: "router"
 circuit_type_name: "IPLC"
 demo_tag: "dd"
 
+# ── Regions ───────────────────────────────────────────────────────────────
+gb_region: "UK"
+us_region: "USA"
+ar_region: "Argentina"
+
 # ── Sites ─────────────────────────────────────────────────────────────────
 gb_site_name: "GB-Bristol"
+gb_site_lat: 51.4545
+gb_site_lon: -2.5879
+
 us_site_name: "US-Atlanta"
+us_site_lat: 33.749
+us_site_lon: -84.388
+
 ar_site_name: "AR-Buenos-Aires"
+ar_site_lat: -34.603722
+ar_site_lon: -58.381592
 
 # ── Routers ───────────────────────────────────────────────────────────────
 gb_router: "gb-rtr-01"
@@ -155,10 +168,20 @@ ba_br_cables:
 # Assembled flat lists (consumed by seed playbook loops)
 # ══════════════════════════════════════════════════════════════════════════
 
+demo_regions: >-
+  {{ [{'name': us_region}]
+     + ([{'name': gb_region}] if seed_bristol | bool else [])
+     + ([{'name': ar_region}] if seed_buenos_aires | bool else []) }}
+
 demo_sites: >-
-  {{ [us_site_name]
-     + ([gb_site_name] if seed_bristol | bool else [])
-     + ([ar_site_name] if seed_buenos_aires | bool else []) }}
+  {{ [{'name': us_site_name, 'region': us_region,
+       'latitude': us_site_lat, 'longitude': us_site_lon}]
+     + ([{'name': gb_site_name, 'region': gb_region,
+          'latitude': gb_site_lat, 'longitude': gb_site_lon}]
+        if seed_bristol | bool else [])
+     + ([{'name': ar_site_name, 'region': ar_region,
+          'latitude': ar_site_lat, 'longitude': ar_site_lon}]
+        if seed_buenos_aires | bool else []) }}
 
 demo_routers: >-
   {{ [{'name': us_router, 'site': us_site_name}]

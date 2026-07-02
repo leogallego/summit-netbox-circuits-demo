@@ -168,11 +168,6 @@ ba_br_cables:
 # Assembled flat lists (consumed by seed playbook loops)
 # ══════════════════════════════════════════════════════════════════════════
 
-demo_regions: >-
-  {{ [{'name': us_region}]
-     + ([{'name': gb_region}] if seed_bristol | bool else [])
-     + ([{'name': ar_region}] if seed_buenos_aires | bool else []) }}
-
 demo_sites: >-
   {{ [{'name': us_site_name, 'region': us_region,
        'latitude': us_site_lat, 'longitude': us_site_lon}]

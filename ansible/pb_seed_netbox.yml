@@ -38,11 +38,9 @@
         netbox_token: "{{ netbox_token }}"
         validate_certs: "{{ netbox_validate_certs }}"
         data:
-          name: "{{ item.name }}"
+          name: "{{ item }}"
         state: present
-      loop: "{{ demo_regions }}"
-      loop_control:
-        label: "{{ item.name }}"
+      loop: "{{ demo_sites | map(attribute='region') | unique | list }}"
 
     # ── Sites ─────────────────────────────────────────────────────────────────
 
@@ -57,6 +55,8 @@
           region: "{{ item.region }}"
           latitude: "{{ item.latitude }}"
           longitude: "{{ item.longitude }}"
+          tags:
+            - "{{ demo_tag }}"
         state: present
       loop: "{{ demo_sites }}"
       loop_control:
@@ -270,6 +270,7 @@
       ansible.builtin.debug:
         msg: |
           NetBox seeded with demo data:
+            Regions:    {{ demo_sites | map(attribute='region') | unique | join(', ') }}
             Sites:      {{ demo_sites | map(attribute='name') | join(', ') }}
             Provider:   {{ provider_name }}
             Routers:    {{ demo_routers | map(attribute='name') | join(', ') }}
